@@ -1,0 +1,89 @@
+import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
+import { Alert, ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native';
+import { useTheme } from '../theme-context';
+
+export default function MenuScreen() {
+  const router = useRouter();
+  // Pegamos a função correta
+  const { theme, toggleTheme, isDarkMode, allowNsfw, setNsfwEnabled } = useTheme();
+
+  const handleSwitchChange = (newValue) => {
+    if (newValue === true) {
+      Alert.alert(
+        "Conteúdo Adulto", 
+        "Permitir conteúdo +18 nas buscas?",
+        [
+          { text: "Cancelar", onPress: () => setNsfwEnabled(false), style: "cancel" },
+          { text: "Sim", onPress: () => setNsfwEnabled(true) }
+        ]
+      );
+    } else {
+      setNsfwEnabled(false);
+    }
+  };
+
+  return (
+    <ScrollView style={[styles.container, { backgroundColor: theme.background }]}>
+      <Text style={[styles.headerTitle, { color: theme.text }]}>Menu</Text>
+
+      <View style={styles.section}>
+        <Text style={[styles.sectionTitle, { color: theme.subtext }]}>Preferências</Text>
+        
+        <View style={[styles.optionRow, { backgroundColor: theme.card }]}>
+          <View style={styles.iconRow}>
+            <Ionicons name={isDarkMode ? "moon" : "sunny"} size={22} color={theme.text} />
+            <Text style={[styles.optionText, { color: theme.text }]}>
+              {isDarkMode ? "Modo Escuro" : "Modo Claro"}
+            </Text>
+          </View>
+          <Switch
+            trackColor={{ false: "#767577", true: "#81b0ff" }}
+            thumbColor={isDarkMode ? theme.tint : "#f4f3f4"}
+            onValueChange={toggleTheme}
+            value={isDarkMode}
+          />
+        </View>
+
+        <View style={[styles.optionRow, { backgroundColor: theme.card, marginTop: 10 }]}>
+          <View style={styles.iconRow}>
+            <Ionicons name={allowNsfw ? "eye" : "eye-off"} size={22} color={allowNsfw ? "#FF3B30" : theme.text} />
+            <Text style={[styles.optionText, { color: theme.text }]}>
+              Mostrar Conteúdo +18
+            </Text>
+          </View>
+          <Switch
+            trackColor={{ false: "#767577", true: "#FF3B30" }}
+            thumbColor={allowNsfw ? "#fff" : "#f4f3f4"}
+            onValueChange={handleSwitchChange}
+            value={allowNsfw}
+          />
+        </View>
+      </View>
+
+      <View style={styles.section}>
+        <Text style={[styles.sectionTitle, { color: theme.subtext }]}>Descobrir</Text>
+        <TouchableOpacity style={[styles.button, { backgroundColor: theme.tint }]} onPress={() => router.push("/season")}>
+          <Ionicons name="calendar" size={22} color="#fff" />
+          <Text style={styles.buttonText}>Animes da Temporada</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={[styles.button, { backgroundColor: '#FF9500' }]} onPress={() => router.push("/filter")}>
+          <Ionicons name="albums" size={22} color="#fff" />
+          <Text style={styles.buttonText}>Filtrar por Gênero</Text>
+        </TouchableOpacity>
+      </View>
+    </ScrollView>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: { flex: 1, padding: 20, paddingTop: 50 },
+  headerTitle: { fontSize: 30, fontWeight: 'bold', marginBottom: 30 },
+  section: { marginBottom: 30 },
+  sectionTitle: { fontSize: 18, fontWeight: '600', marginBottom: 10, marginLeft: 5 },
+  optionRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 15, borderRadius: 12 },
+  iconRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  optionText: { fontSize: 16, fontWeight: '500' },
+  button: { flexDirection: 'row', alignItems: 'center', padding: 15, borderRadius: 12, marginBottom: 10, gap: 10 },
+  buttonText: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
+});
