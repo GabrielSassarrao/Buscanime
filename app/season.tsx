@@ -57,7 +57,18 @@ export default function SeasonScreen() {
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
       <StatusBar barStyle={isDarkMode ? "light-content" : "dark-content"} />
-      <Stack.Screen options={{ title: 'Temporada Atual', headerStyle: { backgroundColor: theme.background }, headerTintColor: theme.text, headerRight: null }} />
+      
+      {/* CORREÇÃO: Botão voltar ativado */}
+      <Stack.Screen 
+        options={{ 
+          title: 'Temporada Atual', 
+          headerShown: true, 
+          headerStyle: { backgroundColor: theme.background }, 
+          headerTintColor: theme.text, 
+          headerBackTitle: 'Voltar',
+          headerRight: null 
+        }} 
+      />
 
       {loading && page === 1 ? (
         <ActivityIndicator size="large" color={theme.tint} style={{ marginTop: 50 }} />

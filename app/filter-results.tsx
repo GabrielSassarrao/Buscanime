@@ -55,7 +55,18 @@ export default function FilterResults() {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
-      <Stack.Screen options={{ title: 'Resultados', headerStyle: { backgroundColor: theme.background }, headerTintColor: theme.text, headerRight: null }} />
+      
+      {/* CORREÇÃO: Botão voltar ativado */}
+      <Stack.Screen 
+        options={{ 
+          title: 'Resultados', 
+          headerShown: true, 
+          headerStyle: { backgroundColor: theme.background }, 
+          headerTintColor: theme.text, 
+          headerBackTitle: 'Voltar',
+          headerRight: null 
+        }} 
+      />
       
       {loading && page === 1 ? (
         <ActivityIndicator size="large" color={theme.tint} style={{ marginTop: 50 }} />

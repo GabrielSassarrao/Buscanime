@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { Stack, useRouter } from 'expo-router';
 import { useState } from 'react';
 import { Alert, FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useTheme } from './theme-context';
@@ -32,6 +32,18 @@ export default function FilterScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
+      
+      {/* CORREÇÃO: Botão voltar ativado */}
+      <Stack.Screen 
+        options={{ 
+          title: 'Filtrar por Gênero', 
+          headerShown: true, 
+          headerStyle: { backgroundColor: theme.background },
+          headerTintColor: theme.text,
+          headerBackTitle: 'Voltar'
+        }} 
+      />
+
       <Text style={[styles.title, { color: theme.text }]}>Selecione os Gêneros ({selected.length}):</Text>
       <FlatList
         data={GENRES} keyExtractor={item => item.id.toString()} numColumns={2} contentContainerStyle={{ paddingBottom: 100 }}

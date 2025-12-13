@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Stack, useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router'; // Adicionei useRouter
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Image, Linking, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useTheme } from './theme-context';
@@ -9,6 +9,7 @@ const genreTranslations = { "Action": "Ação", "Adventure": "Aventura", "Comedy
 
 export default function Details() {
   const params = useLocalSearchParams();
+  const router = useRouter(); // Hook para navegação
   const initialData = params.animeData ? JSON.parse(params.animeData) : null;
   
   const [anime, setAnime] = useState(initialData);
@@ -122,7 +123,6 @@ export default function Details() {
     } catch (error) { Alert.alert("Erro", "Verifique internet."); } finally { setTranslating(false); }
   };
 
-  // --- NOVA FUNÇÃO: ABRIR NO GOOGLE ---
   const abrirNoGoogle = () => {
     const query = `assistir ${anime.title} online`;
     const url = `https://www.google.com/search?q=${encodeURIComponent(query)}`;
@@ -132,118 +132,126 @@ export default function Details() {
   if (!anime) return <View style={styles.center}><ActivityIndicator size="large" color={theme.tint} /></View>;
 
   return (
-    <ScrollView style={[styles.container, { backgroundColor: theme.background }]}>
+    <View style={{flex: 1, backgroundColor: theme.background}}>
       <StatusBar barStyle={isDarkMode ? "light-content" : "dark-content"} />
-      <Stack.Screen options={{ title: 'Detalhes', headerStyle: { backgroundColor: theme.background }, headerTintColor: theme.text, headerRight: null }} />
-
-      <Image source={{ uri: imageUrl }} style={styles.cover} />
       
-      <View style={[styles.content, { backgroundColor: theme.background }]}>
-        <Text style={[styles.title, { color: theme.text }]}>{anime.title}</Text>
-        
-        {/* BOTÕES DE AÇÃO (Favorito / Visto) */}
-        <View style={styles.actionButtons}>
-          <TouchableOpacity 
-            style={[styles.actionBtn, { 
-              backgroundColor: isFavorite ? '#FF3B30' : theme.card, 
-              borderColor: isFavorite ? '#FF3B30' : theme.border, 
-              borderWidth: 1, marginRight: 10 
-            }]} 
-            onPress={() => saveData(!isFavorite, isWatched, watchedEpisodes)}
-          >
-            <Ionicons name={isFavorite ? "heart" : "heart-outline"} size={20} color={isFavorite ? "white" : theme.text} />
-            <Text style={[styles.btnText, { color: isFavorite ? "white" : theme.text }]}>
-              {isFavorite ? 'Favorito' : 'Favoritar'}
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity 
-            style={[styles.actionBtn, { 
-              backgroundColor: isWatched ? '#34C759' : theme.card, 
-              borderColor: isWatched ? '#34C759' : theme.border, 
-              borderWidth: 1
-            }]} 
-            onPress={toggleGlobalWatched}
-          >
-            <Ionicons name={isWatched ? "checkmark-circle" : "ellipse-outline"} size={20} color={isWatched ? "white" : theme.text} />
-            <Text style={[styles.btnText, { color: isWatched ? "white" : theme.text }]}>
-              {isWatched ? 'Visto Tudo' : 'Marcar Visto'}
-            </Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* NOVO BOTÃO: BUSCAR NO GOOGLE (SOZINHO) */}
-        <TouchableOpacity 
-          style={[styles.googleBtn, { backgroundColor: '#4285F4', borderColor: theme.border }]} 
-          onPress={abrirNoGoogle}
-        >
-          <Ionicons name="logo-google" size={20} color="white" />
-          <Text style={[styles.btnText, { color: 'white' }]}>Buscar Episódios no Google</Text>
-        </TouchableOpacity>
-
-        <View style={styles.infoRow}>
-          <Text style={[styles.badge, { backgroundColor: theme.card, color: theme.text }]}>{anime.year || '?'}</Text>
-          <Text style={[styles.badge, { backgroundColor: theme.card, color: theme.text }]}>{anime.episodes || '?'} Eps</Text>
-          <Text style={[styles.badge, { backgroundColor: theme.card, color: theme.text }]}>Nota: {anime.score || '-'}</Text>
-        </View>
-
-        {/* GRADE DE EPISÓDIOS */}
-        {anime.episodes && anime.episodes > 1 && (
-          <View style={styles.trackerContainer}>
-            <Text style={[styles.sectionTitle, { color: theme.text, marginBottom: 10 }]}>
-              Progresso ({watchedEpisodes.length}/{anime.episodes})
-            </Text>
-            <View style={styles.episodesGrid}>
-              {Array.from({ length: anime.episodes }, (_, i) => i + 1).map((num) => {
-                const isEpWatched = watchedEpisodes.includes(num);
-                return (
-                  <TouchableOpacity 
-                    key={num} 
-                    style={[
-                      styles.epBox, 
-                      { 
-                        backgroundColor: isEpWatched ? '#34C759' : theme.card,
-                        borderColor: isEpWatched ? '#34C759' : theme.border
-                      }
-                    ]}
-                    onPress={() => toggleEpisode(num)}
-                  >
-                    <Text style={[styles.epText, { color: isEpWatched ? '#FFF' : theme.text }]}>{num}</Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-          </View>
-        )}
-
-        <View style={styles.genres}>
-          {anime.genres && anime.genres.map((g) => (
-            <Text key={g.name} style={[styles.genreText, { color: theme.text, backgroundColor: theme.card, borderWidth: 1, borderColor: theme.border }]}>#{genreTranslations[g.name] || g.name}</Text>
-          ))}
-        </View>
-
-        <View style={styles.synopsisHeader}>
-          <Text style={[styles.sectionTitle, { color: theme.text }]}>Sinopse</Text>
-          <TouchableOpacity onPress={handleTranslate} style={styles.translateBtn} disabled={translating}>
-            <Text style={[styles.translateText, { color: theme.tint }]}>{translating ? "Traduzindo..." : "Traduzir"}</Text>
-          </TouchableOpacity>
-        </View>
-        {/* CORREÇÃO DA COR DA SINOPSE AQUI TAMBÉM */}
-        <Text style={[styles.synopsis, { color: theme.text }]}>{synopsis}</Text>
+      {/* --- CABEÇALHO PERSONALIZADO COM BOTÃO VOLTAR --- */}
+      <View style={[styles.header, { backgroundColor: theme.background }]}>
+         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+            <Ionicons name="arrow-back" size={28} color={theme.text} />
+         </TouchableOpacity>
+         <Text style={[styles.headerTitle, { color: theme.text }]} numberOfLines={1}>{anime.title}</Text>
+         <View style={{width: 28}} /> 
       </View>
-    </ScrollView>
+
+      <ScrollView style={[styles.container, { backgroundColor: theme.background }]}>
+        <Image source={{ uri: imageUrl }} style={styles.cover} />
+        
+        <View style={[styles.content, { backgroundColor: theme.background }]}>
+          <Text style={[styles.title, { color: theme.text }]}>{anime.title}</Text>
+          
+          <View style={styles.actionButtons}>
+            <TouchableOpacity 
+              style={[styles.actionBtn, { 
+                backgroundColor: isFavorite ? '#FF3B30' : theme.card, 
+                borderColor: isFavorite ? '#FF3B30' : theme.border, 
+                borderWidth: 1, marginRight: 10 
+              }]} 
+              onPress={() => saveData(!isFavorite, isWatched, watchedEpisodes)}
+            >
+              <Ionicons name={isFavorite ? "heart" : "heart-outline"} size={20} color={isFavorite ? "white" : theme.text} />
+              <Text style={[styles.btnText, { color: isFavorite ? "white" : theme.text }]}>
+                {isFavorite ? 'Favorito' : 'Favoritar'}
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity 
+              style={[styles.actionBtn, { 
+                backgroundColor: isWatched ? '#34C759' : theme.card, 
+                borderColor: isWatched ? '#34C759' : theme.border, 
+                borderWidth: 1
+              }]} 
+              onPress={toggleGlobalWatched}
+            >
+              <Ionicons name={isWatched ? "checkmark-circle" : "ellipse-outline"} size={20} color={isWatched ? "white" : theme.text} />
+              <Text style={[styles.btnText, { color: isWatched ? "white" : theme.text }]}>
+                {isWatched ? 'Visto Tudo' : 'Marcar Visto'}
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          <TouchableOpacity 
+            style={[styles.googleBtn, { backgroundColor: '#4285F4', borderColor: theme.border }]} 
+            onPress={abrirNoGoogle}
+          >
+            <Ionicons name="logo-google" size={20} color="white" />
+            <Text style={[styles.btnText, { color: 'white' }]}>Buscar Episódios no Google</Text>
+          </TouchableOpacity>
+
+          <View style={styles.infoRow}>
+            <Text style={[styles.badge, { backgroundColor: theme.card, color: theme.text }]}>{anime.year || '?'}</Text>
+            <Text style={[styles.badge, { backgroundColor: theme.card, color: theme.text }]}>{anime.episodes || '?'} Eps</Text>
+            <Text style={[styles.badge, { backgroundColor: theme.card, color: theme.text }]}>Nota: {anime.score || '-'}</Text>
+          </View>
+
+          {anime.episodes && anime.episodes > 1 && (
+            <View style={styles.trackerContainer}>
+              <Text style={[styles.sectionTitle, { color: theme.text, marginBottom: 10 }]}>
+                Progresso ({watchedEpisodes.length}/{anime.episodes})
+              </Text>
+              <View style={styles.episodesGrid}>
+                {Array.from({ length: anime.episodes }, (_, i) => i + 1).map((num) => {
+                  const isEpWatched = watchedEpisodes.includes(num);
+                  return (
+                    <TouchableOpacity 
+                      key={num} 
+                      style={[
+                        styles.epBox, 
+                        { 
+                          backgroundColor: isEpWatched ? '#34C759' : theme.card,
+                          borderColor: isEpWatched ? '#34C759' : theme.border
+                        }
+                      ]}
+                      onPress={() => toggleEpisode(num)}
+                    >
+                      <Text style={[styles.epText, { color: isEpWatched ? '#FFF' : theme.text }]}>{num}</Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            </View>
+          )}
+
+          <View style={styles.genres}>
+            {anime.genres && anime.genres.map((g) => (
+              <Text key={g.name} style={[styles.genreText, { color: theme.text, backgroundColor: theme.card, borderWidth: 1, borderColor: theme.border }]}>#{genreTranslations[g.name] || g.name}</Text>
+            ))}
+          </View>
+
+          <View style={styles.synopsisHeader}>
+            <Text style={[styles.sectionTitle, { color: theme.text }]}>Sinopse</Text>
+            <TouchableOpacity onPress={handleTranslate} style={styles.translateBtn} disabled={translating}>
+              <Text style={[styles.translateText, { color: theme.tint }]}>{translating ? "Traduzindo..." : "Traduzir"}</Text>
+            </TouchableOpacity>
+          </View>
+          <Text style={[styles.synopsis, { color: theme.text }]}>{synopsis}</Text>
+        </View>
+      </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 15, paddingVertical: 10, paddingTop: 40 },
+  headerTitle: { fontSize: 18, fontWeight: 'bold', flex: 1, textAlign: 'center' },
+  backButton: { padding: 5 },
+  container: { flex: 1 },
   cover: { width: '100%', height: 350, resizeMode: 'cover' },
   content: { flex: 1, marginTop: -30, borderTopLeftRadius: 25, borderTopRightRadius: 25, padding: 20, shadowOpacity: 0.1, elevation: 5 },
   title: { fontSize: 22, fontWeight: 'bold', marginBottom: 15, textAlign: 'center' },
-  actionButtons: { flexDirection: 'row', marginBottom: 10 }, // Reduzi margem para caber o Google
+  actionButtons: { flexDirection: 'row', marginBottom: 10 },
   actionBtn: { flexDirection: 'row', padding: 12, borderRadius: 10, alignItems: 'center', justifyContent: 'center', gap: 5, flex: 1 },
-  // Estilo do Botão Google
   googleBtn: { flexDirection: 'row', padding: 12, borderRadius: 10, alignItems: 'center', justifyContent: 'center', gap: 8, marginBottom: 20, borderWidth: 1 },
   btnText: { fontWeight: 'bold', fontSize: 14 },
   infoRow: { flexDirection: 'row', justifyContent: 'center', gap: 10, marginBottom: 15 },
