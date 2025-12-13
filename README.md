@@ -1,28 +1,33 @@
-# 📱 AnimeTracker
+# 📱 Buscanime
 
-O **AnimeTracker** é um aplicativo móvel completo desenvolvido para facilitar a busca, o acompanhamento e a organização de animes. O projeto consome dados em tempo real da **Jikan API** (MyAnimeList).
+O **Buscanime** é um aplicativo móvel completo desenvolvido para facilitar a busca, o acompanhamento e a organização de animes. O projeto consome dados em tempo real da **Jikan API** (MyAnimeList).
 
 ## ✨ Funcionalidades
 
-- **🔍 Busca Ilimitada:** Pesquise qualquer anime na base de dados mundial.
-- **📂 Minha Lista:** Marque animes como **Favoritos** ❤️ e **Vistos** ✅.
-- **📅 Temporada Atual:** Acompanhe os lançamentos da semana.
-- **⚡ Filtros Avançados:** Filtre por Gêneros e ordene por nota ou data.
-- **🌗 Modo Escuro:** Interface moderna que se adapta à sua preferência.
+- **🔍 Busca Ilimitada:** Pesquise qualquer anime na base de dados mundial com rolagem infinita.
+- **📂 Minha Lista (Biblioteca):**
+  - Marque animes como **Favoritos** ❤️.
+  - Marque animes como **Vistos** ✅.
+  - Os status funcionam de forma independente.
+- **📅 Temporada Atual:** Acompanhe os lançamentos que estão saindo agora.
+- **⚡ Filtros Avançados:** Filtre por Gêneros, ordene sua lista e use o filtro de conteúdo +18.
+- **🌗 Modo Escuro:** Interface moderna com um tema exclusivo azul e branco.
 
 ## 🚀 Como Baixar e Instalar (Android)
 
-1. Acesse a aba **[Releases](https://github.com/GabrielSassarrao/AnimeTracker/releases)** aqui no GitHub.
-2. Baixe o arquivo **`.apk`** da versão mais recente.
-3. Instale no seu celular (Aceite a instalação de fontes desconhecidas).
+Para testar a versão mais recente (**v2.0.0**) no seu celular Android:
 
-## 🛠️ Tecnologias Usadas
+1. Acesse a aba **[Releases](https://github.com/GabrielSassarrao/Buscanime/releases)** aqui no GitHub.
+2. Baixe o arquivo **`Buscanime.apk`**.
+3. Abra o arquivo no seu celular e clique em **Instalar**.
+   - *Nota: Se o Android pedir permissão, aceite a instalação de "Fontes Desconhecidas".*
 
-- **React Native** (Expo)
-- **TypeScript / JavaScript**
-- **Expo Router**
-- **AsyncStorage**
-- **Jikan API**
+## 🛠️ Tecnologias Utilizadas
+
+- **[React Native](https://reactnative.dev/)** (Expo)
+- **[Expo Router](https://docs.expo.dev/router/introduction/)**
+- **[AsyncStorage](https://react-native-async-storage.github.io/async-storage/)**
+- **[Jikan API](https://jikan.moe/)**
 
 ---
 Desenvolvido por **[Gabriel de Sassarrão Moraes Ramos](https://github.com/GabrielSassarrao)**.

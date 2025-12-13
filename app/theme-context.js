@@ -1,17 +1,19 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { createContext, useContext, useEffect, useState } from 'react';
+import { useColorScheme } from 'react-native';
 
 const ThemeContext = createContext();
 
 export const ThemeProvider = ({ children }) => {
-  const [isDarkMode, setIsDarkMode] = useState(false);
+  const systemScheme = useColorScheme();
+  const [isDarkMode, setIsDarkMode] = useState(systemScheme === 'dark' || true); 
   const [allowNsfw, setAllowNsfw] = useState(false);
 
   useEffect(() => {
     const loadSettings = async () => {
       try {
         const themeVal = await AsyncStorage.getItem('theme');
-        if (themeVal === 'dark') setIsDarkMode(true);
+        if (themeVal !== null) setIsDarkMode(themeVal === 'dark');
         
         const nsfwVal = await AsyncStorage.getItem('nsfw');
         setAllowNsfw(nsfwVal === 'true');
@@ -28,7 +30,6 @@ export const ThemeProvider = ({ children }) => {
     });
   };
 
-  // FUNÇÃO DESTRVADA: Recebe true/false direto
   const setNsfwEnabled = (value) => {
     setAllowNsfw(value);
     AsyncStorage.setItem('nsfw', value ? 'true' : 'false');
@@ -36,17 +37,22 @@ export const ThemeProvider = ({ children }) => {
 
   const theme = {
     dark: isDarkMode,
-    background: isDarkMode ? '#121212' : '#FFFFFF',
-    text: isDarkMode ? '#FFFFFF' : '#000000',
-    card: isDarkMode ? '#1E1E1E' : '#f9f9f9',
-    tint: '#007AFF',
-    tabBar: isDarkMode ? '#121212' : '#FFFFFF',
-    border: isDarkMode ? '#333' : '#eee',
-    subtext: isDarkMode ? '#aaa' : '#666',
+    // Fundo: Azul Escuro Profundo vs Cinza Claro
+    background: isDarkMode ? '#0A1A2F' : '#F2F2F7', 
+    // Texto: Branco Puro vs Preto
+    text: isDarkMode ? '#FFFFFF' : '#000000',       
+    // Cartões: Azul um pouco mais claro vs Branco
+    card: isDarkMode ? '#112240' : '#FFFFFF',       
+    // DESTAQUE (Correção do botão branco):
+    // No escuro usa Azul Claro (#0A84FF), no claro usa Azul Padrão (#007AFF)
+    tint: isDarkMode ? '#0A84FF' : '#007AFF',       
+    tabBar: isDarkMode ? '#0A1A2F' : '#FFFFFF',     
+    border: isDarkMode ? '#1B3A57' : '#C6C6C8',     
+    // Subtexto: Cinza Claro vs Cinza Escuro
+    subtext: isDarkMode ? '#CBD5E0' : '#3C3C43',    
   };
 
   return (
-    // IMPORTANTE: Passamos setNsfwEnabled aqui
     <ThemeContext.Provider value={{ theme, toggleTheme, isDarkMode, allowNsfw, setNsfwEnabled }}>
       {children}
     </ThemeContext.Provider>
