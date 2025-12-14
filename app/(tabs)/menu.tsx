@@ -1,24 +1,19 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { Alert, Platform, ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native'; // <--- Adicionei Platform
+import { Alert, Platform, ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native';
 import { useTheme } from '../theme-context';
 
 export default function MenuScreen() {
   const router = useRouter();
   const { theme, toggleTheme, isDarkMode, allowNsfw, setNsfwEnabled } = useTheme();
 
-  const handleSwitchChange = (newValue) => {
+  const handleSwitchChange = (newValue: boolean) => {
     if (newValue === true) {
-      // VERIFICAÇÃO: Se for Web (PC), usa window.confirm
       if (Platform.OS === 'web') {
         const aceitou = window.confirm("Conteúdo Adulto\n\nPermitir conteúdo +18 nas buscas?");
-        if (aceitou) {
-          setNsfwEnabled(true);
-        } else {
-          setNsfwEnabled(false);
-        }
+        if (aceitou) setNsfwEnabled(true);
+        else setNsfwEnabled(false);
       } else {
-        // Se for Celular (Android/iOS), usa o Alert bonito
         Alert.alert(
           "Conteúdo Adulto", 
           "Permitir conteúdo +18 nas buscas?",
@@ -37,15 +32,12 @@ export default function MenuScreen() {
     <ScrollView style={[styles.container, { backgroundColor: theme.background }]}>
       <Text style={[styles.headerTitle, { color: theme.text }]}>Menu</Text>
 
-      {/* --- NAVEGAÇÃO PRINCIPAL --- */}
       <View style={styles.section}>
         <Text style={[styles.sectionTitle, { color: theme.subtext }]}>Navegação</Text>
-        
         <TouchableOpacity style={[styles.button, { backgroundColor: theme.tint }]} onPress={() => router.push("/search")}>
           <Ionicons name="search" size={22} color={isDarkMode ? theme.background : "#fff"} />
           <Text style={[styles.buttonText, { color: isDarkMode ? theme.background : "#fff" }]}>Pesquisar Animes</Text>
         </TouchableOpacity>
-
         <TouchableOpacity style={[styles.button, { backgroundColor: '#FF3B30' }]} onPress={() => router.push("/favorites")}>
           <Ionicons name="heart" size={22} color="#fff" />
           <Text style={styles.buttonText}>Meus Favoritos</Text>
@@ -62,6 +54,11 @@ export default function MenuScreen() {
           <Ionicons name="albums" size={22} color="#fff" />
           <Text style={styles.buttonText}>Filtrar por Gênero</Text>
         </TouchableOpacity>
+        {/* BOTÃO DA BUSCA A-Z */}
+        <TouchableOpacity style={[styles.button, { backgroundColor: '#A259FF' }]} onPress={() => router.push("/initial-selector")}>
+          <Ionicons name="text" size={22} color="#fff" />
+          <Text style={styles.buttonText}>Busca por Inicial (A-Z)</Text>
+        </TouchableOpacity>
       </View>
 
       <View style={styles.section}>
@@ -73,7 +70,6 @@ export default function MenuScreen() {
           </View>
           <Switch trackColor={{ false: "#767577", true: theme.tint }} thumbColor={isDarkMode ? "#fff" : "#f4f3f4"} onValueChange={toggleTheme} value={isDarkMode} />
         </View>
-
         <View style={[styles.optionRow, { backgroundColor: theme.card, marginTop: 10 }]}>
           <View style={styles.iconRow}>
             <Ionicons name={allowNsfw ? "eye" : "eye-off"} size={22} color={allowNsfw ? "#FF3B30" : theme.text} />
@@ -82,7 +78,6 @@ export default function MenuScreen() {
           <Switch trackColor={{ false: "#767577", true: "#FF3B30" }} thumbColor={allowNsfw ? "#fff" : "#f4f3f4"} onValueChange={handleSwitchChange} value={allowNsfw} />
         </View>
       </View>
-      
       <Text style={{ textAlign: 'center', color: theme.subtext, marginTop: 10 }}>Buscanime v2.2.1</Text>
     </ScrollView>
   );
