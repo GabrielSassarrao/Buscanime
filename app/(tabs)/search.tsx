@@ -2,23 +2,23 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import {
-    ActivityIndicator,
-    Alert,
-    FlatList,
-    Image,
-    Linking,
-    StatusBar,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View
+  ActivityIndicator,
+  Alert,
+  FlatList,
+  Image,
+  Linking,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '../theme-context';
 
 export default function SearchScreen() {
-  const { theme, isDarkMode } = useTheme();
+  const { theme, isDarkMode, allowNsfw } = useTheme(); // <--- Pegando allowNsfw
   const router = useRouter();
 
   const [searchText, setSearchText] = useState('');
@@ -38,7 +38,10 @@ export default function SearchScreen() {
   const fetchAnimes = async (pageNumber) => {
     if (pageNumber === 1) setLoading(true);
     try {
-      const url = `https://api.jikan.moe/v4/anime?q=${searchText}&page=${pageNumber}&limit=24&sfw`;
+      // CORREÇÃO: Lógica do filtro +18
+      const nsfwParam = allowNsfw ? '' : '&sfw';
+      const url = `https://api.jikan.moe/v4/anime?q=${searchText}&page=${pageNumber}&limit=24${nsfwParam}`;
+      
       const response = await fetch(url);
       
       if (response.status === 429) {
@@ -79,7 +82,6 @@ export default function SearchScreen() {
     <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
       <StatusBar barStyle={isDarkMode ? "light-content" : "dark-content"} />
       
-      {/* Cabeçalho simples com botão voltar */}
       <View style={{flexDirection: 'row', alignItems: 'center', marginVertical: 15}}>
           <TouchableOpacity onPress={() => router.back()} style={{padding: 5, marginRight: 10}}>
              <Ionicons name="arrow-back" size={24} color={theme.text} />
@@ -123,7 +125,9 @@ export default function SearchScreen() {
                 <View style={styles.info}>
                   <Text style={[styles.title, { color: theme.text }]} numberOfLines={2}>{item.title}</Text>
                   <Text style={[styles.details, { color: theme.subtext }]}>Ano: {item.year || '?'}</Text>
-                  <Text style={[styles.status, { color: item.status === 'Currently Airing' ? 'green' : theme.subtext }]}>
+                  
+                  {/* Status já estava ok aqui, mantive */}
+                  <Text style={[styles.status, { color: item.status === 'Currently Airing' ? '#34C759' : theme.subtext }]}>
                     {item.status === 'Currently Airing' ? '🟢 Lançando' : '🔴 Concluído'}
                   </Text>
                 </View>

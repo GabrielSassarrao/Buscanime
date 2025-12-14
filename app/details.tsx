@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useLocalSearchParams, useRouter } from 'expo-router'; // Adicionei useRouter
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Image, Linking, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useTheme } from './theme-context';
@@ -9,7 +9,7 @@ const genreTranslations = { "Action": "Ação", "Adventure": "Aventura", "Comedy
 
 export default function Details() {
   const params = useLocalSearchParams();
-  const router = useRouter(); // Hook para navegação
+  const router = useRouter(); 
   const initialData = params.animeData ? JSON.parse(params.animeData) : null;
   
   const [anime, setAnime] = useState(initialData);
@@ -135,7 +135,6 @@ export default function Details() {
     <View style={{flex: 1, backgroundColor: theme.background}}>
       <StatusBar barStyle={isDarkMode ? "light-content" : "dark-content"} />
       
-      {/* --- CABEÇALHO PERSONALIZADO COM BOTÃO VOLTAR --- */}
       <View style={[styles.header, { backgroundColor: theme.background }]}>
          <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
             <Ionicons name="arrow-back" size={28} color={theme.text} />
@@ -188,10 +187,17 @@ export default function Details() {
             <Text style={[styles.btnText, { color: 'white' }]}>Buscar Episódios no Google</Text>
           </TouchableOpacity>
 
+          {/* CORREÇÃO: Badge de Status Adicionado */}
           <View style={styles.infoRow}>
             <Text style={[styles.badge, { backgroundColor: theme.card, color: theme.text }]}>{anime.year || '?'}</Text>
             <Text style={[styles.badge, { backgroundColor: theme.card, color: theme.text }]}>{anime.episodes || '?'} Eps</Text>
             <Text style={[styles.badge, { backgroundColor: theme.card, color: theme.text }]}>Nota: {anime.score || '-'}</Text>
+            <Text style={[styles.badge, { 
+                backgroundColor: theme.card, 
+                color: anime.status === 'Currently Airing' ? '#34C759' : theme.subtext 
+            }]}>
+                {anime.status === 'Currently Airing' ? 'Lançando' : 'Completo'}
+            </Text>
           </View>
 
           {anime.episodes && anime.episodes > 1 && (
@@ -254,7 +260,7 @@ const styles = StyleSheet.create({
   actionBtn: { flexDirection: 'row', padding: 12, borderRadius: 10, alignItems: 'center', justifyContent: 'center', gap: 5, flex: 1 },
   googleBtn: { flexDirection: 'row', padding: 12, borderRadius: 10, alignItems: 'center', justifyContent: 'center', gap: 8, marginBottom: 20, borderWidth: 1 },
   btnText: { fontWeight: 'bold', fontSize: 14 },
-  infoRow: { flexDirection: 'row', justifyContent: 'center', gap: 10, marginBottom: 15 },
+  infoRow: { flexDirection: 'row', justifyContent: 'center', gap: 10, marginBottom: 15, flexWrap: 'wrap' }, // Adicionei flexWrap
   badge: { paddingVertical: 6, paddingHorizontal: 12, borderRadius: 20, fontSize: 12, fontWeight: 'bold', overflow: 'hidden' },
   genres: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', marginBottom: 20 },
   genreText: { fontSize: 12, margin: 4, padding: 6, borderRadius: 6 },

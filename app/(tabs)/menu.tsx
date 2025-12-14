@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { Alert, ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, Platform, ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native'; // <--- Adicionei Platform
 import { useTheme } from '../theme-context';
 
 export default function MenuScreen() {
@@ -9,14 +9,25 @@ export default function MenuScreen() {
 
   const handleSwitchChange = (newValue) => {
     if (newValue === true) {
-      Alert.alert(
-        "Conteúdo Adulto", 
-        "Permitir conteúdo +18 nas buscas?",
-        [
-          { text: "Cancelar", onPress: () => setNsfwEnabled(false), style: "cancel" },
-          { text: "Sim", onPress: () => setNsfwEnabled(true) }
-        ]
-      );
+      // VERIFICAÇÃO: Se for Web (PC), usa window.confirm
+      if (Platform.OS === 'web') {
+        const aceitou = window.confirm("Conteúdo Adulto\n\nPermitir conteúdo +18 nas buscas?");
+        if (aceitou) {
+          setNsfwEnabled(true);
+        } else {
+          setNsfwEnabled(false);
+        }
+      } else {
+        // Se for Celular (Android/iOS), usa o Alert bonito
+        Alert.alert(
+          "Conteúdo Adulto", 
+          "Permitir conteúdo +18 nas buscas?",
+          [
+            { text: "Cancelar", onPress: () => setNsfwEnabled(false), style: "cancel" },
+            { text: "Sim", onPress: () => setNsfwEnabled(true) }
+          ]
+        );
+      }
     } else {
       setNsfwEnabled(false);
     }
@@ -26,7 +37,7 @@ export default function MenuScreen() {
     <ScrollView style={[styles.container, { backgroundColor: theme.background }]}>
       <Text style={[styles.headerTitle, { color: theme.text }]}>Menu</Text>
 
-      {/* NOVOS BOTÕES DE NAVEGAÇÃO PRINCIPAL */}
+      {/* --- NAVEGAÇÃO PRINCIPAL --- */}
       <View style={styles.section}>
         <Text style={[styles.sectionTitle, { color: theme.subtext }]}>Navegação</Text>
         
@@ -72,7 +83,7 @@ export default function MenuScreen() {
         </View>
       </View>
       
-      <Text style={{ textAlign: 'center', color: theme.subtext, marginTop: 10 }}>Buscanime v2.2</Text>
+      <Text style={{ textAlign: 'center', color: theme.subtext, marginTop: 10 }}>Buscanime v2.2.1</Text>
     </ScrollView>
   );
 }

@@ -2,12 +2,12 @@
   "expo": {
     "name": "Buscanime",
     "slug": "buscanime",
-    "version": "2.2.0",
+    "version": "2.2.1",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
+    "icon": "./assets/images/icon.png",
     "userInterfaceStyle": "automatic",
     "splash": {
-      "image": "./assets/splash.png",
+      "image": "./assets/images/splash-icon.png",
       "resizeMode": "contain",
       "backgroundColor": "#0A1A2F"
     },
@@ -17,21 +17,22 @@
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
+        "foregroundImage": "./assets/images/android-icon-foreground.png",
         "backgroundColor": "#0A1A2F"
       },
       "package": "com.gabriel.buscanime"
     },
     "web": {
-      "favicon": "./assets/favicon.png"
+      "favicon": "./assets/images/favicon.png"
     },
     "plugins": [
       "expo-router"
     ],
     "scheme": "buscanime",
     "extra": {
+      "router": {},
       "eas": {
-        "projectId": "e7a7fac3-6444-4211-89b9-4dbce418f4a7"
+        "projectId": "5e454d6d-3a61-40a0-87eb-30d9c33768d7"
       }
     }
   }

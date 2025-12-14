@@ -11,7 +11,7 @@ export default function SeasonScreen() {
   const [hasMore, setHasMore] = useState(true);
   
   const router = useRouter();
-  const { theme, isDarkMode } = useTheme();
+  const { theme, isDarkMode, allowNsfw } = useTheme(); // <--- allowNsfw
 
   useEffect(() => {
     fetchSeason(1);
@@ -21,7 +21,10 @@ export default function SeasonScreen() {
     if (pageNumber === 1) setLoading(true);
     
     try {
-      const url = `https://api.jikan.moe/v4/seasons/now?page=${pageNumber}&limit=24`;
+      // CORREÇÃO: Lógica do filtro +18
+      const nsfwParam = allowNsfw ? '' : '&sfw';
+      const url = `https://api.jikan.moe/v4/seasons/now?page=${pageNumber}&limit=24${nsfwParam}`;
+      
       const response = await fetch(url);
       
       if (response.status === 429) {
@@ -58,7 +61,6 @@ export default function SeasonScreen() {
     <View style={[styles.container, { backgroundColor: theme.background }]}>
       <StatusBar barStyle={isDarkMode ? "light-content" : "dark-content"} />
       
-      {/* CORREÇÃO: Botão voltar ativado */}
       <Stack.Screen 
         options={{ 
           title: 'Temporada Atual', 
@@ -89,6 +91,12 @@ export default function SeasonScreen() {
               <Image source={{ uri: item.images.jpg.image_url }} style={styles.poster} />
               <View style={styles.textContainer}>
                 <Text style={[styles.title, { color: theme.text }]} numberOfLines={2}>{item.title}</Text>
+                
+                {/* CORREÇÃO: Adicionado Status */}
+                <Text style={[styles.statusText, { color: item.status === 'Currently Airing' ? '#34C759' : theme.subtext }]}>
+                   {item.status === 'Currently Airing' ? '🟢 Lançando' : '🔴 Concluído'}
+                </Text>
+
                 <Text style={[styles.details, { color: theme.subtext }]}>
                   {item.year || 'Atual'} • {item.score ? `⭐ ${item.score}` : '-'}
                 </Text>
@@ -108,5 +116,6 @@ const styles = StyleSheet.create({
   poster: { width: '100%', height: 220, borderRadius: 8, resizeMode: 'cover' },
   textContainer: { marginTop: 8, width: '100%', alignItems: 'center' },
   title: { fontSize: 13, fontWeight: 'bold', textAlign: 'center', marginBottom: 4 },
+  statusText: { fontSize: 11, fontWeight: 'bold', marginBottom: 2 }, // Estilo novo
   details: { fontSize: 11 },
 });
