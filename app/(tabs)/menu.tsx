@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import AsyncStorage from '@react-native-async-storage/async-storage'; // Importação para ler os dados
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { Alert, Platform, ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native';
@@ -9,7 +9,7 @@ export default function MenuScreen() {
   const router = useRouter();
   const { theme, toggleTheme, isDarkMode, allowNsfw, setNsfwEnabled } = useTheme();
   
-  // Estado para guardar os números
+  // Estado para guardar os números de estatísticas
   const [stats, setStats] = useState({ favorites: 0, watched: 0 });
 
   // Carrega as estatísticas toda vez que entra na tela
@@ -28,6 +28,8 @@ export default function MenuScreen() {
         const totalWatched = list.filter((item: any) => item.watched === true).length;
         
         setStats({ favorites: totalFavorites, watched: totalWatched });
+      } else {
+        setStats({ favorites: 0, watched: 0 });
       }
     } catch (error) {
       console.log('Erro ao carregar stats:', error);
@@ -76,6 +78,22 @@ export default function MenuScreen() {
         </View>
       </View>
 
+      {/* --- SEÇÃO: MEUS DADOS (BACKUP) --- */}
+      <View style={styles.section}>
+        <Text style={[styles.sectionTitle, { color: theme.subtext }]}>Meus Dados</Text>
+        
+        <TouchableOpacity style={[styles.button, { backgroundColor: '#4CD964' }]} onPress={() => router.push("/backup")}>
+          <Ionicons name="cloud-upload" size={22} color="#fff" />
+          <Text style={styles.buttonText}>Fazer Backup</Text>
+        </TouchableOpacity>
+        
+        <TouchableOpacity style={[styles.button, { backgroundColor: '#007AFF' }]} onPress={() => router.push("/restore")}>
+          <Ionicons name="cloud-download" size={22} color="#fff" />
+          <Text style={styles.buttonText}>Restaurar (Upload)</Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* --- SEÇÃO: NAVEGAÇÃO --- */}
       <View style={styles.section}>
         <Text style={[styles.sectionTitle, { color: theme.subtext }]}>Navegação</Text>
         <TouchableOpacity style={[styles.button, { backgroundColor: theme.tint }]} onPress={() => router.push("/search")}>
@@ -88,6 +106,7 @@ export default function MenuScreen() {
         </TouchableOpacity>
       </View>
 
+      {/* --- SEÇÃO: DESCOBRIR --- */}
       <View style={styles.section}>
         <Text style={[styles.sectionTitle, { color: theme.subtext }]}>Descobrir</Text>
         <TouchableOpacity style={[styles.button, { backgroundColor: '#FF9500' }]} onPress={() => router.push("/season")}>
@@ -104,6 +123,7 @@ export default function MenuScreen() {
         </TouchableOpacity>
       </View>
 
+      {/* --- SEÇÃO: PREFERÊNCIAS --- */}
       <View style={styles.section}>
         <Text style={[styles.sectionTitle, { color: theme.subtext }]}>Preferências</Text>
         <View style={[styles.optionRow, { backgroundColor: theme.card }]}>

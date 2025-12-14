@@ -12,7 +12,17 @@ O **Buscanime** é um aplicativo móvel completo desenvolvido para facilitar a b
 - **📅 Temporada Atual:** Acompanhe os lançamentos que estão saindo agora.
 - **⚡ Filtros Avançados:** Filtre por Gêneros, ordene sua lista e use o filtro de conteúdo +18.
 - **🌗 Modo Escuro:** Interface moderna com um tema exclusivo azul e branco.
-
+### ✨ Novidades:
+- **Backup Cross-Platform:**
+  - **Web:** Gera o download automático do arquivo `.json`.
+  - **Mobile:** Permite compartilhar o arquivo para Google Drive, WhatsApp ou salvar nos arquivos locais.
+- **Restauração Inteligente:**
+  - O sistema detecta se você está importando animes que já existem na sua lista.
+  - **Resolução de Conflitos:** Se houver duplicatas, você pode escolher:
+    1. 👁️ Marcar todos os conflitos como **Vistos**.
+    2. ⭕ Marcar todos como **Não Vistos**.
+    3. ⚙️ **Modo Manual:** Escolher um por um qual status manter.
+    
 ## 🚀 Como Baixar e Instalar (Android)
 
 Para testar a versão mais recente (**v2.0.0**) no seu celular Android:
