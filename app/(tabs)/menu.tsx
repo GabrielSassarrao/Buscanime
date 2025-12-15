@@ -141,7 +141,7 @@ export default function MenuScreen() {
           <Switch trackColor={{ false: "#767577", true: "#FF3B30" }} thumbColor={allowNsfw ? "#fff" : "#f4f3f4"} onValueChange={handleSwitchChange} value={allowNsfw} />
         </View>
       </View>
-      <Text style={{ textAlign: 'center', color: theme.subtext, marginTop: 10, marginBottom: 30 }}>AnimeTracker v2.4.1</Text>
+      <Text style={{ textAlign: 'center', color: theme.subtext, marginTop: 10, marginBottom: 30 }}>AnimeTracker v2.4.2</Text>
     </ScrollView>
   );
 }

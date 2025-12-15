@@ -3,8 +3,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { FlatList, Image, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context'; // Importação essencial para evitar cortes
-import SortModal from '../../components/SortModal';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import SortModal from '../../components/SortModal'; // Certifique-se de adicionar a opção no Modal
 import { useTheme } from '../theme-context';
 
 export default function FavoritesScreen() {
@@ -34,18 +34,43 @@ export default function FavoritesScreen() {
     if (favorites.length > 0) processList(favorites, sortOption, filterOption);
   }, [sortOption, filterOption, favorites]);
 
-  const processList = (list, sort, filter) => {
+  // Função auxiliar para garantir datas válidas na ordenação
+  const getDate = (dateStr: string) => {
+    if (!dateStr) return 0;
+    const d = new Date(dateStr);
+    return isNaN(d.getTime()) ? 0 : d.getTime();
+  };
+
+  const processList = (list: any[], sort: string, filter: string) => {
     let result = [...list];
 
-    // FILTROS
-    if (filter === 'watched') result = result.filter(item => item.watched === true);
-    if (filter === 'unwatched') result = result.filter(item => !item.watched);
+    // --- FILTROS ---
+    if (filter === 'watched') {
+        result = result.filter(item => item.watched === true);
+    }
+    else if (filter === 'unwatched') {
+        result = result.filter(item => !item.watched);
+    }
+    // NOVO FILTRO: Animes da Temporada (Lançando)
+    else if (filter === 'seasonal') {
+        result = result.filter(item => item.status === 'Currently Airing');
+    }
 
-    // ORDENAÇÃO
-    if (sort === 'az') result.sort((a, b) => a.title.localeCompare(b.title));
-    if (sort === 'score') result.sort((a, b) => (b.score || 0) - (a.score || 0));
-    if (sort === 'newest') result.sort((a, b) => new Date(b.start_date || 0) - new Date(a.start_date || 0));
-    if (sort === 'oldest') result.sort((a, b) => new Date(a.start_date || 0) - new Date(b.start_date || 0));
+    // --- ORDENAÇÃO ---
+    if (sort === 'az') {
+        result.sort((a, b) => a.title.localeCompare(b.title));
+    }
+    else if (sort === 'score') {
+        result.sort((a, b) => (b.score || 0) - (a.score || 0));
+    }
+    else if (sort === 'newest') {
+        // Ordena estritamente por data (Mais Recente primeiro)
+        result.sort((a, b) => getDate(b.start_date) - getDate(a.start_date));
+    }
+    else if (sort === 'oldest') {
+        // Ordena estritamente por data (Mais Antigo primeiro)
+        result.sort((a, b) => getDate(a.start_date) - getDate(b.start_date));
+    }
 
     setDisplayList(result);
   };
@@ -54,21 +79,17 @@ export default function FavoritesScreen() {
     <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
       <StatusBar barStyle={isDarkMode ? "light-content" : "dark-content"} />
       
-      {/* CABEÇALHO CORRIGIDO */}
       <View style={styles.header}>
-        {/* Lado Esquerdo: Botão Voltar */}
         <TouchableOpacity 
           onPress={() => router.back()} 
           style={styles.iconButton}
-          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }} // Aumenta a área de toque
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
         >
            <Ionicons name="arrow-back" size={28} color={theme.text} />
         </TouchableOpacity>
 
-        {/* Centro: Título */}
         <Text style={[styles.headerTitle, { color: theme.text }]}>Minha Lista 📂</Text>
         
-        {/* Lado Direito: Filtro */}
         <TouchableOpacity 
           onPress={() => setModalVisible(true)}
           style={styles.iconButton}
@@ -90,7 +111,7 @@ export default function FavoritesScreen() {
         </View>
       ) : displayList.length === 0 ? (
         <View style={styles.emptyState}>
-          <Text style={[styles.emptyText, { color: theme.subtext }]}>Nenhum anime encontrado.</Text>
+          <Text style={[styles.emptyText, { color: theme.subtext }]}>Nenhum anime encontrado com este filtro.</Text>
         </View>
       ) : (
         <FlatList
@@ -106,12 +127,27 @@ export default function FavoritesScreen() {
               <View style={styles.info}>
                 <Text style={[styles.title, { color: theme.text }]} numberOfLines={2}>{item.title}</Text>
                 
-                <View style={{flexDirection: 'row', gap: 8, marginTop: 5}}>
+                {/* Indicadores de Status */}
+                <View style={{flexDirection: 'row', gap: 8, marginTop: 5, flexWrap: 'wrap'}}>
                    {item.isFavorite && <Ionicons name="heart" size={16} color="#FF3B30" />}
                    {item.watched && <Ionicons name="checkmark-circle" size={16} color="#34C759" />}
+                   
+                   {/* Badge para animes da temporada */}
+                   {item.status === 'Currently Airing' && (
+                     <View style={{flexDirection: 'row', alignItems: 'center', gap: 2, backgroundColor: 'rgba(52, 199, 89, 0.15)', paddingHorizontal: 6, borderRadius: 4}}>
+                        <Text style={{fontSize: 10, color: '#34C759', fontWeight: 'bold'}}>Lançando</Text>
+                     </View>
+                   )}
                 </View>
 
-                <Text style={{color: theme.subtext, fontSize: 11, marginTop: 5}}>Nota: {item.score || '-'}</Text>
+                <View style={{marginTop: 5}}>
+                    <Text style={{color: theme.subtext, fontSize: 11}}>Nota: {item.score || '-'}</Text>
+                    {item.start_date && (
+                        <Text style={{color: theme.subtext, fontSize: 10}}>
+                            {new Date(item.start_date).getFullYear()}
+                        </Text>
+                    )}
+                </View>
               </View>
             </TouchableOpacity>
           )}
