@@ -25,7 +25,7 @@ O **Buscanime** é um aplicativo móvel completo desenvolvido para facilitar a b
     
 ## 🚀 Como Baixar e Instalar (Android)
 
-Para testar a versão mais recente (**v2.0.0**) no seu celular Android:
+Para testar a versão mais recente (**v2.4.1**) no seu celular Android:
 
 1. Acesse a aba **[Releases](https://github.com/GabrielSassarrao/Buscanime/releases)** aqui no GitHub.
 2. Baixe o arquivo **`Buscanime.apk`**.

@@ -2,7 +2,7 @@
   "expo": {
     "name": "Buscanime",
     "slug": "buscanime",
-    "version": "2.3.1",
+    "version": "2.4.1",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "userInterfaceStyle": "automatic",
