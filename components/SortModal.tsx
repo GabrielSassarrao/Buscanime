@@ -12,10 +12,12 @@ export default function SortModal({ visible, onClose, sortOption, setSortOption,
     { label: '⭐ Melhor Avaliados', value: 'score' },
   ];
 
+  // ADICIONADO: Opção 'seasonal' para filtrar animes lançando
   const filterOptions = [
     { label: 'Todos', value: 'all' },
     { label: '✅ Vistos', value: 'watched' },
     { label: '⭕ Não Vistos', value: 'unwatched' },
+    { label: '🟢 Lançando', value: 'seasonal' }, 
   ];
 
   return (
