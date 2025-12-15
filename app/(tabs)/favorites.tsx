@@ -4,7 +4,7 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { FlatList, Image, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import SortModal from '../../components/SortModal'; // Certifique-se de adicionar a opção no Modal
+import SortModal from '../../components/SortModal';
 import { useTheme } from '../theme-context';
 
 export default function FavoritesScreen() {
@@ -34,27 +34,19 @@ export default function FavoritesScreen() {
     if (favorites.length > 0) processList(favorites, sortOption, filterOption);
   }, [sortOption, filterOption, favorites]);
 
-  // Função auxiliar para garantir datas válidas na ordenação
-  const getDate = (dateStr: string) => {
+  const getDate = (dateStr) => {
     if (!dateStr) return 0;
     const d = new Date(dateStr);
     return isNaN(d.getTime()) ? 0 : d.getTime();
   };
 
-  const processList = (list: any[], sort: string, filter: string) => {
+  const processList = (list, sort, filter) => {
     let result = [...list];
 
     // --- FILTROS ---
-    if (filter === 'watched') {
-        result = result.filter(item => item.watched === true);
-    }
-    else if (filter === 'unwatched') {
-        result = result.filter(item => !item.watched);
-    }
-    // NOVO FILTRO: Animes da Temporada (Lançando)
-    else if (filter === 'seasonal') {
-        result = result.filter(item => item.status === 'Currently Airing');
-    }
+    if (filter === 'watched') result = result.filter(item => item.watched === true);
+    if (filter === 'unwatched') result = result.filter(item => !item.watched);
+    if (filter === 'seasonal') result = result.filter(item => item.status === 'Currently Airing');
 
     // --- ORDENAÇÃO ---
     if (sort === 'az') {
@@ -64,15 +56,21 @@ export default function FavoritesScreen() {
         result.sort((a, b) => (b.score || 0) - (a.score || 0));
     }
     else if (sort === 'newest') {
-        // Ordena estritamente por data (Mais Recente primeiro)
+        // Ordena do ano maior para o menor (2025 -> 2024 -> 2023...)
         result.sort((a, b) => getDate(b.start_date) - getDate(a.start_date));
     }
     else if (sort === 'oldest') {
-        // Ordena estritamente por data (Mais Antigo primeiro)
+        // Ordena do ano menor para o maior (2000 -> 2001 -> 2002...)
         result.sort((a, b) => getDate(a.start_date) - getDate(b.start_date));
     }
 
     setDisplayList(result);
+  };
+
+  // Função para formatar o ano bonito
+  const getYearLabel = (dateStr) => {
+    if (!dateStr) return '???';
+    return new Date(dateStr).getFullYear();
   };
 
   return (
@@ -111,7 +109,7 @@ export default function FavoritesScreen() {
         </View>
       ) : displayList.length === 0 ? (
         <View style={styles.emptyState}>
-          <Text style={[styles.emptyText, { color: theme.subtext }]}>Nenhum anime encontrado com este filtro.</Text>
+          <Text style={[styles.emptyText, { color: theme.subtext }]}>Nenhum anime encontrado.</Text>
         </View>
       ) : (
         <FlatList
@@ -127,27 +125,38 @@ export default function FavoritesScreen() {
               <View style={styles.info}>
                 <Text style={[styles.title, { color: theme.text }]} numberOfLines={2}>{item.title}</Text>
                 
-                {/* Indicadores de Status */}
-                <View style={{flexDirection: 'row', gap: 8, marginTop: 5, flexWrap: 'wrap'}}>
+                {/* LINHA DE DESTAQUE: ANO E NOTA */}
+                <View style={{flexDirection: 'row', alignItems: 'center', marginBottom: 6, gap: 8}}>
+                    {/* Badge do Ano */}
+                    <View style={{
+                        backgroundColor: theme.tint + '20', // Cor do tema com transparência
+                        paddingHorizontal: 6,
+                        paddingVertical: 2,
+                        borderRadius: 4,
+                        borderWidth: 1,
+                        borderColor: theme.tint
+                    }}>
+                        <Text style={{color: theme.tint, fontSize: 11, fontWeight: 'bold'}}>
+                            {getYearLabel(item.start_date)}
+                        </Text>
+                    </View>
+
+                    {/* Nota */}
+                    <Text style={{color: theme.subtext, fontSize: 11, fontWeight: '600'}}>
+                        ⭐ {item.score || '-'}
+                    </Text>
+                </View>
+
+                {/* Ícones de Status e Badge Lançando */}
+                <View style={{flexDirection: 'row', gap: 8, alignItems: 'center', flexWrap: 'wrap'}}>
                    {item.isFavorite && <Ionicons name="heart" size={16} color="#FF3B30" />}
                    {item.watched && <Ionicons name="checkmark-circle" size={16} color="#34C759" />}
                    
-                   {/* Badge para animes da temporada */}
                    {item.status === 'Currently Airing' && (
-                     <View style={{flexDirection: 'row', alignItems: 'center', gap: 2, backgroundColor: 'rgba(52, 199, 89, 0.15)', paddingHorizontal: 6, borderRadius: 4}}>
-                        <Text style={{fontSize: 10, color: '#34C759', fontWeight: 'bold'}}>Lançando</Text>
-                     </View>
+                     <Text style={{fontSize: 10, color: '#34C759', fontWeight: 'bold'}}>● Lançando</Text>
                    )}
                 </View>
 
-                <View style={{marginTop: 5}}>
-                    <Text style={{color: theme.subtext, fontSize: 11}}>Nota: {item.score || '-'}</Text>
-                    {item.start_date && (
-                        <Text style={{color: theme.subtext, fontSize: 10}}>
-                            {new Date(item.start_date).getFullYear()}
-                        </Text>
-                    )}
-                </View>
               </View>
             </TouchableOpacity>
           )}
@@ -182,5 +191,5 @@ const styles = StyleSheet.create({
   },
   poster: { width: 60, height: 90, borderRadius: 5 },
   info: { marginLeft: 10, flex: 1, justifyContent: 'center' },
-  title: { fontWeight: 'bold', fontSize: 15 },
+  title: { fontWeight: 'bold', fontSize: 15, marginBottom: 4 },
 });
