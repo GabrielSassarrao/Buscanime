@@ -1,119 +1,159 @@
-import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import * as FileSystem from 'expo-file-system';
-import { useRouter } from 'expo-router';
+// Mantendo a correção do erro de versão do Expo
+import { Ionicons } from '@expo/vector-icons';
+import * as FileSystem from 'expo-file-system/legacy';
+import { Stack, useRouter } from 'expo-router';
 import * as Sharing from 'expo-sharing';
-import { useState } from 'react';
-import { ActivityIndicator, Alert, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native'; // Adicionado Platform
-import { useTheme } from './theme-context';
+import React, { useState } from 'react';
+import { ActivityIndicator, Alert, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 export default function BackupScreen() {
-  const router = useRouter();
-  const { theme } = useTheme();
   const [loading, setLoading] = useState(false);
+  const router = useRouter();
 
-  const handleBackup = async () => {
+  const gerarBackup = async () => {
     setLoading(true);
     try {
-      // 1. Pega os dados dos favoritos
-      const saved = await AsyncStorage.getItem('favorites');
-      if (!saved || saved === '[]') {
-        Alert.alert("Atenção", "Sua lista está vazia. Nada para salvar.");
-        setLoading(false);
-        return;
-      }
+      const keys = await AsyncStorage.getAllKeys();
+      const result = await AsyncStorage.multiGet(keys);
+      
+      const data = result.reduce((acc: { [key: string]: any }, [key, value]) => {
+        if (value) {
+            try {
+              acc[key] = JSON.parse(value);
+            } catch (e) {
+              acc[key] = value;
+            }
+        }
+        return acc;
+      }, {});
 
-      const fileName = 'animetracker_backup.json';
+      data['backup_date'] = new Date().toISOString();
+      const jsonString = JSON.stringify(data, null, 2);
+      
+      const fileUri = FileSystem.cacheDirectory + 'buscanime_backup.json';
 
-      // --- ADAPTAÇÃO PARA PC (WEB) ---
-      if (Platform.OS === 'web') {
-        const blob = new Blob([saved], { type: 'application/json' });
-        const url = URL.createObjectURL(blob);
-        
-        // Cria link invisível para forçar download
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = fileName;
-        document.body.appendChild(link);
-        link.click();
-        
-        // Limpeza
-        document.body.removeChild(link);
-        URL.revokeObjectURL(url);
-        
-        alert("Backup baixado! Verifique sua pasta de Downloads.");
-        setLoading(false);
-        return; 
-      }
+      await FileSystem.writeAsStringAsync(fileUri, jsonString, {
+        encoding: 'utf8' 
+      });
 
-      // --- LÓGICA ORIGINAL (ANDROID/IOS) ---
-      const fileUri = FileSystem.documentDirectory + fileName;
-
-      // Escreve os dados no arquivo
-      await FileSystem.writeAsStringAsync(fileUri, saved, { encoding: FileSystem.EncodingType.UTF8 });
-
-      // Abre o compartilhamento
       if (await Sharing.isAvailableAsync()) {
         await Sharing.shareAsync(fileUri, {
-          mimeType: 'application/json',
-          dialogTitle: 'Salvar Backup do AnimeTracker'
+            mimeType: 'application/json',
+            dialogTitle: 'Salvar Backup'
         });
       } else {
-        Alert.alert("Erro", "Compartilhamento não disponível neste dispositivo.");
+        Alert.alert("Erro", "Compartilhamento indisponível.");
       }
-    } catch (error) {
-      Alert.alert("Erro", "Falha ao gerar backup.");
-      console.log(error);
+
+    } catch (error: any) {
+      Alert.alert("Erro", "Falha ao gerar backup: " + error.message);
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.background }]}>
+    <View style={styles.container}>
+      <StatusBar barStyle="light-content" backgroundColor="#0f172a" />
+      
+      {/* Esconde o header padrão para usarmos o nosso personalizado */}
+      <Stack.Screen options={{ headerShown: false }} />
+
+      {/* Cabeçalho com Botão Voltar */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={{ padding: 5 }}>
-          <Ionicons name="arrow-back" size={24} color={theme.text} />
+        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+          <Ionicons name="arrow-back" size={28} color="#fff" />
         </TouchableOpacity>
-        <Text style={[styles.title, { color: theme.text }]}>Fazer Backup</Text>
-        <View style={{ width: 30 }} />
+        <Text style={styles.headerTitle}>Backup</Text>
+        <View style={{ width: 28 }} /> 
       </View>
+      
+      <View style={styles.content}>
+        <View style={styles.card}>
+          <View style={styles.iconContainer}>
+              <Ionicons name="cloud-upload" size={64} color="#3b82f6" />
+          </View>
 
-      <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.border }]}>
-        <Ionicons name="cloud-upload" size={50} color={theme.tint} style={{ alignSelf: 'center', marginBottom: 20 }} />
-        
-        <Text style={[styles.text, { color: theme.text }]}>
-          Este backup serve para passar seus dados para outros dispositivos ou para novas atualizações do nosso aplicativo.
-        </Text>
-        <Text style={[styles.text, { color: theme.text, marginTop: 10 }]}>
-          No celular, ele abrirá o compartilhamento. No PC, ele fará o download do arquivo JSON.
-        </Text>
+          <Text style={styles.description}>
+            Gere um arquivo .json com todos os seus favoritos e configurações para salvar externamente.
+          </Text>
 
-        <TouchableOpacity 
-          style={[styles.button, { backgroundColor: theme.tint }]} 
-          onPress={handleBackup}
-          disabled={loading}
-        >
           {loading ? (
-            <ActivityIndicator color="#fff" />
+            <ActivityIndicator size="large" color="#3b82f6" style={{margin: 20}} />
           ) : (
-            <>
-              <Ionicons name="save" size={20} color="#fff" />
+            <TouchableOpacity style={styles.button} onPress={gerarBackup}>
               <Text style={styles.buttonText}>Gerar Arquivo de Backup</Text>
-            </>
+            </TouchableOpacity>
           )}
-        </TouchableOpacity>
+        </View>
       </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 20, paddingTop: 50 },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 30 },
-  title: { fontSize: 22, fontWeight: 'bold' },
-  card: { padding: 20, borderRadius: 15, borderWidth: 1, alignItems: 'center' },
-  text: { fontSize: 16, textAlign: 'justify', lineHeight: 24, marginBottom: 5 },
-  button: { flexDirection: 'row', alignItems: 'center', padding: 15, borderRadius: 10, marginTop: 20, gap: 10, width: '100%', justifyContent: 'center' },
-  buttonText: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
+  container: {
+    flex: 1,
+    backgroundColor: '#0f172a', // Cor correta (Slate 900)
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingTop: 50, // Ajuste para barra de status
+    paddingBottom: 20,
+  },
+  backButton: {
+    padding: 5,
+  },
+  headerTitle: {
+    color: '#fff',
+    fontSize: 20,
+    fontWeight: 'bold',
+  },
+  content: {
+    flex: 1,
+    justifyContent: 'center',
+    padding: 20,
+  },
+  card: {
+    width: '100%',
+    backgroundColor: '#1e293b', // Cor correta do cartão (Slate 800)
+    padding: 24,
+    borderRadius: 16,
+    alignItems: 'center',
+    elevation: 5,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4.65,
+  },
+  iconContainer: {
+    marginBottom: 20,
+    backgroundColor: 'rgba(59, 130, 246, 0.1)',
+    padding: 20,
+    borderRadius: 50,
+  },
+  description: {
+    color: '#cbd5e1', // Texto cinza claro
+    fontSize: 16,
+    textAlign: 'center',
+    marginBottom: 30,
+    lineHeight: 24
+  },
+  button: {
+    backgroundColor: '#3b82f6', // Azul padrão
+    paddingVertical: 15,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+    width: '100%',
+    alignItems: 'center',
+  },
+  buttonText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 16,
+  }
 });
