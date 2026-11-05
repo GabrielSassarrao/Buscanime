@@ -1,46 +1,71 @@
-# 📱 Buscanime
+Buscanime
 
-O **Buscanime** é um aplicativo móvel completo desenvolvido para facilitar a busca, o acompanhamento e a organização de animes. O projeto consome dados em tempo real da **Jikan API** (MyAnimeList).
+O Buscanime é um aplicativo móvel completo e moderno desenvolvido em React Native para facilitar a busca, o acompanhamento e a organização da sua lista pessoal de animes. O projeto consome dados em tempo real da Jikan API (MyAnimeList).
 
-## ✨ Funcionalidades
+✨ Funcionalidades Principais
 
-- **🔍 Busca Ilimitada:** Pesquise qualquer anime na base de dados mundial com rolagem infinita.
-- **📂 Minha Lista (Biblioteca):**
-  - Marque animes como **Favoritos** ❤️.
-  - Marque animes como **Vistos** ✅.
-  - Os status funcionam de forma independente.
-- **📅 Temporada Atual:** Acompanhe os lançamentos que estão saindo agora.
-- **⚡ Filtros Avançados:** Filtre por Gêneros, ordene sua lista e use o filtro de conteúdo +18.
-- **🌗 Modo Escuro:** Interface moderna com um tema exclusivo azul e branco.
-### ✨ Novidades:
-- **Backup Cross-Platform:**
-  - **Web:** Gera o download automático do arquivo `.json`.
-  - **Mobile:** Permite compartilhar o arquivo para Google Drive, WhatsApp ou salvar nos arquivos locais.
-- **Restauração Inteligente:**
-  - O sistema detecta se você está importando animes que já existem na sua lista.
-  - **Resolução de Conflitos:** Se houver duplicatas, você pode escolher:
-    1. 👁️ Marcar todos os conflitos como **Vistos**.
-    2. ⭕ Marcar todos como **Não Vistos**.
-    3. ⚙️ **Modo Manual:** Escolher um por um qual status manter.
+🔍 Busca Ilimitada: Pesquise qualquer anime na base de dados mundial com rolagem infinita e busca dinâmica por título e ano.
 
-- Adicionado novo sistema de filtros na tela de Favoritos (vistos/não vistos, status de lançamento).
-- Melhorias na ordenação e desempenho de busca.
-    
-## 🚀 Como Baixar e Instalar (Android)
+📂 Minha Lista (Biblioteca Pessoal):
 
-Para testar a versão mais recente (**v2.4.4**) no seu celular Android:
+Marque títulos como Favoritos ❤️ e Vistos ✅ de forma independente.
 
-1. Acesse a aba **[Releases](https://github.com/GabrielSassarrao/Buscanime/releases)** aqui no GitHub.
-2. Baixe o arquivo **`Buscanime.apk`**.
-3. Abra o arquivo no seu celular e clique em **Instalar**.
-   - *Nota: Se o Android pedir permissão, aceite a instalação de "Fontes Desconhecidas".*
+Acompanhe o progresso episódio por episódio.
 
-## 🛠️ Tecnologias Utilizadas
+Sincronização automática do status de animes em lançamento.
 
-- **[React Native](https://reactnative.dev/)** (Expo)
-- **[Expo Router](https://docs.expo.dev/router/introduction/)**
-- **[AsyncStorage](https://react-native-async-storage.github.io/async-storage/)**
-- **[Jikan API](https://jikan.moe/)**
+⚡ Filtros e Ordenação Avançada:
 
----
-Desenvolvido por **[Gabriel de Sassarrão Moraes Ramos](https://github.com/GabrielSassarrao)**.
+Filtragem por status de exibição (Em Lançamento, Concluído).
+
+Filtragem por status de progresso (Vistos, Não Vistos, Todos).
+
+Ordenação por ordem alfabética (A-Z), melhor avaliados ou data de lançamento (mais novos/antigos).
+
+Filtro por múltiplos gêneros e controle de conteúdo (+18 / NSFW).
+
+📅 Temporada Atual: Acompanhe em tempo real os animes lançados na temporada atual.
+
+💾 Backup & Restauração Inteligente:
+
+Cross-Platform: Exporte ou importe sua biblioteca em .json no Mobile e na Web.
+
+Resolução de Conflitos: Ao restaurar, defina o status em lote (Todos Vistos, Não Vistos) ou escolha manualmente item por item.
+
+🌗 Interface Adaptável: Modo escuro nativo com acabamento visual moderno em tons azul e branco.
+
+🚀 Novidades da Versão (v2.4.5)
+
+✨ Catálogo de Gêneros Expandido: Adição de gêneros que estavam ausentes, permitindo filtros de busca mais precisos e completos.
+
+🐛 Correção de Sinopse nos Favoritos: Corrigido o problema que impedia o carregamento correto da sinopse e detalhes em itens da biblioteca.
+
+🔄 Botão de Atualização Manual (Refresh): Adicionado botão de atualização rápida para sincronizar dados, episódios e notas diretamente pela tela de favoritos.
+
+⚡ Otimização de Desempenho: Ajustes em rotas, carregamento de serviços e estabilidade geral na renderização das listas.
+
+📲 Como Baixar e Instalar (Android)
+
+Para instalar a versão mais recente (v2.4.5) no seu dispositivo Android:
+
+Acesse a aba Releases no repositório.
+
+Baixe o arquivo binário Buscanime.apk.
+
+Abra o arquivo no seu smartphone e confirme a instalação.
+
+Nota: Caso o sistema solicite, habilite a permissão de instalação de "Fontes Desconhecidas" nas configurações do Android.
+
+🛠️ Tecnologias Utilizadas
+
+React Native com Expo (SDK 54)
+
+Expo Router (Navegação baseada em arquivos)
+
+AsyncStorage (Persistência de dados locais)
+
+Jikan API (Consumo da API pública do MyAnimeList)
+
+EAS Build (Compilação e geração de binários em nuvem)
+
+Desenvolvido com dedicação por Gabriel de Sassarrão Moraes Ramos.

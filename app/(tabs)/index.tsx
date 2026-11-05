@@ -26,13 +26,14 @@ import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import {
+  ALL_CATEGORIES_PT,
   AnimeItem,
-  NotificationPreference,
   fetchAnimesCatalog,
   fetchCompleteAnimeDetails,
   fetchRandomRecommendation,
   fetchWeeklyScheduleAnimes,
   normalizeLegacyBackupList,
+  NotificationPreference,
   syncFavoritesOnlineWithAlerts,
 } from '../../services/animeService';
 
@@ -49,23 +50,6 @@ const LEGACY_KEYS = [
 
 const THEME_STORAGE_KEY = '@buscanime_theme_mode';
 const ADULT_STORAGE_KEY = '@buscanime_include_adult';
-
-const GENRES_LIST = [
-  'Ação',
-  'Aventura',
-  'Comédia',
-  'Drama',
-  'Fantasia',
-  'Ficção Científica',
-  'Romance',
-  'Suspense',
-  'Terror',
-  'Mistério',
-  'Sobrenatural',
-  'Slice of Life',
-  'Esportes',
-  'Hentai',
-];
 
 const WEEK_DAYS = [
   { id: 0, short: 'Dom', full: 'Domingo' },
@@ -161,7 +145,6 @@ export default function BuscanimeApp() {
     return Array.from(map.values());
   };
 
-  // Dispara notificação local imediata quando uma temporada monitorada termina
   const triggerFinishedSeasonAlert = async (titles: string[]) => {
     if (titles.length === 0) return;
     try {
@@ -188,7 +171,7 @@ export default function BuscanimeApp() {
     } catch {}
   };
 
-  // Carregamento inicial + Migração + Calendário Semanal
+  // Carregamento inicial + Migração + Atualização de Sinopses/Notas/Status dos Favoritos
   useEffect(() => {
     (async () => {
       try {
@@ -202,7 +185,6 @@ export default function BuscanimeApp() {
         const savedBackupDate = await AsyncStorage.getItem(AUTO_BACKUP_DATE_KEY);
         if (savedBackupDate) setLastAutoBackupDate(savedBackupDate);
 
-        // Carrega calendário semanal para o carrossel da tela inicial
         fetchWeeklyScheduleAnimes(isAdultEnabled).then(setWeeklyAnimes);
 
         let initialList: AnimeItem[] = [];
@@ -227,7 +209,7 @@ export default function BuscanimeApp() {
 
           setSyncingFavorites(true);
           const { updatedList, newlyFinishedTitles } =
-            await syncFavoritesOnlineWithAlerts(initialList);
+            await syncFavoritesOnlineWithAlerts(initialList, true);
           setFavorites(updatedList);
           await AsyncStorage.setItem(FAVORITES_STORAGE_KEY, JSON.stringify(updatedList));
           setSyncingFavorites(false);
@@ -270,7 +252,6 @@ export default function BuscanimeApp() {
     } catch {}
   };
 
-  // Configurar Notificação para Anime em Lançamento (Semanal ou Fim de Temporada)
   const handleSetNotificationPreference = async (
     anime: AnimeItem,
     pref: NotificationPreference
@@ -328,7 +309,7 @@ export default function BuscanimeApp() {
     if (pref === 'weekly') {
       Alert.alert(
         'Alerta Semanal Ativado! 🔔',
-        ` "${anime.title}" foi salvo nos seus favoritos com lembrete semanal de novos episódios.`
+        `"${anime.title}" foi salvo nos seus favoritos com lembrete semanal de novos episódios.`
       );
     } else if (pref === 'finished') {
       Alert.alert(
@@ -338,9 +319,8 @@ export default function BuscanimeApp() {
     }
   };
 
-  // Carregar Catálogo
   const loadCatalog = useCallback(
-    async (pageNum: number, reset: boolean = false) => {
+    async (pageNum: number, reset: boolean = false, forceRefresh: boolean = false) => {
       if (reset) {
         setLoadingCatalog(true);
       } else {
@@ -354,6 +334,7 @@ export default function BuscanimeApp() {
         category: selectedCategory,
         year: yearFilterHome,
         includeAdult: includeAdult,
+        forceRefresh,
       });
 
       setCatalogAnimes((prev) => {
@@ -372,10 +353,46 @@ export default function BuscanimeApp() {
   useEffect(() => {
     const timer = setTimeout(() => {
       setPage(1);
-      loadCatalog(1, true);
+      loadCatalog(1, true, false);
     }, 300);
     return () => clearTimeout(timer);
   }, [loadCatalog]);
+
+  // Botão Global de Atualizar Tudo (Atualiza Catálogo, Calendário Semanal e todos os Favoritos: Sinopse, Nota, Episódios e Status)
+  const handleGlobalRefreshAll = async () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+    setSyncingFavorites(true);
+
+    try {
+      await Promise.all([
+        loadCatalog(1, true, true),
+        fetchWeeklyScheduleAnimes(includeAdult).then(setWeeklyAnimes),
+      ]);
+
+      if (favorites.length > 0) {
+        const { updatedList, newlyFinishedTitles } = await syncFavoritesOnlineWithAlerts(
+          favorites,
+          true
+        );
+        await saveFavoritesToStorage(updatedList);
+        setSyncingFavorites(false);
+
+        if (newlyFinishedTitles.length > 0) {
+          triggerFinishedSeasonAlert(newlyFinishedTitles);
+        } else {
+          Alert.alert(
+            'Tudo Atualizado! ✅',
+            'Sinopses, notas, episódios e status de lançamento foram atualizados em todas as seções do app.'
+          );
+        }
+      } else {
+        setSyncingFavorites(false);
+        Alert.alert('Catálogo Atualizado! ✅', 'Todas as seções foram atualizadas com sucesso.');
+      }
+    } catch {
+      setSyncingFavorites(false);
+    }
+  };
 
   const toggleGenreSelection = (genre: string) => {
     Haptics.selectionAsync().catch(() => {});
@@ -384,7 +401,6 @@ export default function BuscanimeApp() {
     );
   };
 
-  // Filtra os animes do Carrossel Semanal pelo dia da semana selecionado (0 = Dom ... 6 = Sáb)
   const animesForSelectedDay = useMemo(() => {
     return weeklyAnimes
       .filter((anime) => {
@@ -399,29 +415,38 @@ export default function BuscanimeApp() {
   }, [weeklyAnimes, selectedWeekDay]);
 
   // =========================================================================
-  // ESTATÍSTICAS DE HORAS DE VIDA E GÊNEROS FAVORITOS
+  // ESTATÍSTICAS COMPLETAS: TOTAL DE ANIMES VISTOS, HORÔMETRO E GÊNEROS
   // =========================================================================
   const userWatchStats = useMemo(() => {
     let totalWatchedEpisodes = 0;
+    let totalWatchedAnimes = 0;
+    let totalWatchingAnimes = 0;
     const genreCounts: Record<string, number> = {};
 
     favorites.forEach((fav) => {
+      const totalEps = fav.episodes || 12;
       const epCount = Array.isArray(fav.watchedEpisodes)
         ? fav.watchedEpisodes.length
         : fav.watched
-        ? fav.episodes || 12
+        ? totalEps
         : 0;
+
+      const isCompleted = Boolean(fav.watched) || (totalEps > 0 && epCount >= totalEps);
+      if (isCompleted) {
+        totalWatchedAnimes += 1;
+      } else if (epCount > 0) {
+        totalWatchingAnimes += 1;
+      }
 
       totalWatchedEpisodes += epCount;
 
-      if (epCount > 0 && Array.isArray(fav.genres)) {
+      if ((epCount > 0 || isCompleted) && Array.isArray(fav.genres)) {
         fav.genres.forEach((g) => {
-          genreCounts[g] = (genreCounts[g] || 0) + epCount;
+          genreCounts[g] = (genreCounts[g] || 0) + Math.max(epCount, 1);
         });
       }
     });
 
-    // Média de 24 minutos por episódio de anime
     const totalMinutes = totalWatchedEpisodes * 24;
     const totalHours = Math.floor(totalMinutes / 60);
     const days = Math.floor(totalMinutes / (60 * 24));
@@ -430,10 +455,12 @@ export default function BuscanimeApp() {
 
     const topGenres = Object.entries(genreCounts)
       .sort((a, b) => b[1] - a[1])
-      .slice(0, 5)
+      .slice(0, 6)
       .map(([genre, count]) => ({ genre, count }));
 
     return {
+      totalWatchedAnimes,
+      totalWatchingAnimes,
       totalWatchedEpisodes,
       totalHours,
       days,
@@ -443,15 +470,11 @@ export default function BuscanimeApp() {
     };
   }, [favorites]);
 
-  // =========================================================================
-  // ROLETA INTELIGENTE DE ANIME ALEATÓRIO (BASEADO NO QUE JÁ VIU + GÊNEROS)
-  // =========================================================================
   const handleSpinRoulette = async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
     setRouletteLoading(true);
     setRouletteResult(null);
 
-    // 1. Identifica todos os animes que o usuário já viu (ou já começou a ver) para nunca repetir
     const seenIds = new Set<number>();
     favorites.forEach((f) => {
       const watchedCount = Array.isArray(f.watchedEpisodes) ? f.watchedEpisodes.length : 0;
@@ -460,7 +483,6 @@ export default function BuscanimeApp() {
       }
     });
 
-    // 2. Se o usuário escolheu sortear dentro dos próprios Favoritos Não Vistos:
     if (rouletteSource === 'favorites') {
       const unwatchedFavs = favorites.filter((f) => {
         const watchedCount = Array.isArray(f.watchedEpisodes) ? f.watchedEpisodes.length : 0;
@@ -482,13 +504,12 @@ export default function BuscanimeApp() {
       }
 
       const randomFav = unwatchedFavs[Math.floor(Math.random() * unwatchedFavs.length)];
-      const complete = await fetchCompleteAnimeDetails(randomFav);
+      const complete = await fetchCompleteAnimeDetails(randomFav, true);
       setRouletteResult(complete);
       setRouletteLoading(false);
       return;
     }
 
-    // 3. Se não selecionou gêneros manualmente, usa os 2 gêneros que ele mais assistiu na vida!
     const genresToUse =
       rouletteGenres.length > 0
         ? rouletteGenres
@@ -503,11 +524,10 @@ export default function BuscanimeApp() {
     if (recommended) {
       setRouletteResult(recommended);
     } else {
-      // Fallback nos carregados do catálogo que ainda não foram vistos
       const fallbackPool = catalogAnimes.filter((a) => !seenIds.has(a.mal_id));
       if (fallbackPool.length > 0) {
         const picked = fallbackPool[Math.floor(Math.random() * fallbackPool.length)];
-        setRouletteResult(await fetchCompleteAnimeDetails(picked));
+        setRouletteResult(await fetchCompleteAnimeDetails(picked, true));
       } else {
         Alert.alert('Ops!', 'Tente selecionar menos gêneros para encontrar mais opções.');
       }
@@ -516,6 +536,7 @@ export default function BuscanimeApp() {
     setRouletteLoading(false);
   };
 
+  // Abre os detalhes buscando SEMPRE sinopse, nota, episódios e status atualizados
   const handleOpenAnimeDetails = async (anime: AnimeItem) => {
     Haptics.selectionAsync().catch(() => {});
     const favMatch = favorites.find((f) => f.mal_id === anime.mal_id);
@@ -526,7 +547,7 @@ export default function BuscanimeApp() {
     setSelectedAnime(initialData);
     setLoadingDetails(true);
 
-    const complete = await fetchCompleteAnimeDetails(initialData);
+    const complete = await fetchCompleteAnimeDetails(initialData, true);
     const updatedFavMatch = favorites.find((f) => f.mal_id === anime.mal_id);
 
     const merged: AnimeItem = {
@@ -672,9 +693,6 @@ export default function BuscanimeApp() {
       });
   }, [favorites, favSearchQuery, favSortBy, favWatchFilter, favAiringFilter]);
 
-  // =========================================================================
-  // BACKUP FACILITADO
-  // =========================================================================
   const handleEasyExportBackup = async () => {
     try {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
@@ -754,8 +772,12 @@ export default function BuscanimeApp() {
         await saveFavoritesToStorage(merged);
         Alert.alert(
           'Backup Restaurado! 🎉',
-          `${listToImport.length} animes do arquivo foram carregados com sucesso (Total na lista: ${merged.length}).`
+          `${listToImport.length} animes foram carregados. Atualizando sinopses e notas em segundo plano...`
         );
+        setSyncingFavorites(true);
+        const { updatedList } = await syncFavoritesOnlineWithAlerts(merged, true);
+        await saveFavoritesToStorage(updatedList);
+        setSyncingFavorites(false);
       } else {
         Alert.alert('Arquivo Inválido', 'Nenhum anime foi encontrado neste arquivo JSON.');
       }
@@ -804,8 +826,12 @@ export default function BuscanimeApp() {
         setCodeBackupModalVisible(false);
         Alert.alert(
           'Código Restaurado! 🎉',
-          `${imported.length} animes foram importados com sucesso.`
+          `${imported.length} animes foram importados. Atualizando sinopses e notas...`
         );
+        setSyncingFavorites(true);
+        const { updatedList } = await syncFavoritesOnlineWithAlerts(merged, true);
+        await saveFavoritesToStorage(updatedList);
+        setSyncingFavorites(false);
       } else {
         Alert.alert('Código Inválido', 'O texto colado não contém animes válidos.');
       }
@@ -924,7 +950,6 @@ export default function BuscanimeApp() {
     );
   };
 
-  // Cabeçalho da FlatList na Tela Inicial com o Carrossel Semanal de Lançamentos
   const renderHomeListHeader = () => {
     if (!showWeeklyCarousel || weeklyAnimes.length === 0) return null;
 
@@ -947,7 +972,6 @@ export default function BuscanimeApp() {
           </TouchableOpacity>
         </View>
 
-        {/* Seletor de Dias da Semana (Dom a Sáb) */}
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -980,7 +1004,6 @@ export default function BuscanimeApp() {
           })}
         </ScrollView>
 
-        {/* Carrossel de Animes que saem no dia escolhido */}
         {animesForSelectedDay.length === 0 ? (
           <Text style={[styles.noScheduleText, { color: theme.subText }]}>
             Nenhum episódio programado para {WEEK_DAYS[selectedWeekDay].full}.
@@ -1029,7 +1052,7 @@ export default function BuscanimeApp() {
 
   return (
     <View style={[styles.root, { backgroundColor: theme.bg, paddingTop: Math.max(insets.top, 12) }]}>
-      {/* CABEÇALHO DO APP COM BOTÃO DE SORTEAR ANIME ALEATÓRIO */}
+      {/* CABEÇALHO DO APP COM BOTÃO DE SORTEAR E BOTÃO DE ATUALIZAR TUDO */}
       <View style={[styles.header, { borderBottomColor: theme.border }]}>
         <View style={{ flex: 1 }}>
           <Text style={[styles.brandTitle, { color: theme.text }]}>
@@ -1037,15 +1060,14 @@ export default function BuscanimeApp() {
           </Text>
           <Text style={[styles.brandSubtitle, { color: theme.subText }]}>
             {activeTab === 'home'
-              ? `${userWatchStats.totalHours}h assistidas • Explore catálogos`
+              ? `${userWatchStats.totalWatchedAnimes} animes vistos • ${userWatchStats.totalHours}h`
               : activeTab === 'favorites'
-              ? `${favorites.length} animes salvos`
+              ? `${favorites.length} salvos (${userWatchStats.totalWatchedAnimes} vistos)`
               : 'Estatísticas, Backup e Ajustes'}
           </Text>
         </View>
 
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-          {/* Botão da Roleta Inteligente (Sugerir Anime Aleatório) */}
           <TouchableOpacity
             style={styles.rouletteHeaderBtn}
             onPress={() => setRouletteModalVisible(true)}
@@ -1054,31 +1076,20 @@ export default function BuscanimeApp() {
             <Text style={styles.rouletteHeaderBtnText}>Sortear</Text>
           </TouchableOpacity>
 
-          {activeTab === 'favorites' && (
-            <TouchableOpacity
-              style={styles.syncButton}
-              onPress={async () => {
-                if (favorites.length === 0) return;
-                setSyncingFavorites(true);
-                const { updatedList, newlyFinishedTitles } =
-                  await syncFavoritesOnlineWithAlerts(favorites);
-                await saveFavoritesToStorage(updatedList);
-                setSyncingFavorites(false);
-                if (newlyFinishedTitles.length > 0) {
-                  triggerFinishedSeasonAlert(newlyFinishedTitles);
-                } else {
-                  Alert.alert('Sincronizado!', 'Favoritos e status de temporada atualizados.');
-                }
-              }}
-              disabled={syncingFavorites}
-            >
-              {syncingFavorites ? (
-                <ActivityIndicator size="small" color="#38BDF8" />
-              ) : (
+          <TouchableOpacity
+            style={styles.syncButton}
+            onPress={handleGlobalRefreshAll}
+            disabled={syncingFavorites}
+          >
+            {syncingFavorites ? (
+              <ActivityIndicator size="small" color="#38BDF8" />
+            ) : (
+              <>
                 <Ionicons name="sync" size={16} color="#38BDF8" />
-              )}
-            </TouchableOpacity>
-          )}
+                <Text style={styles.syncButtonText}>Atualizar</Text>
+              </>
+            )}
+          </TouchableOpacity>
         </View>
       </View>
 
@@ -1161,12 +1172,26 @@ export default function BuscanimeApp() {
               ))}
             </ScrollView>
 
+            {/* Lista Expandida com Todos os Gêneros e Categorias (Mecha, Ecchi, Isekai, Shounen, etc.) */}
             <ScrollView
               horizontal
               showsHorizontalScrollIndicator={false}
               style={styles.horizontalScroll}
             >
-              {GENRES_LIST.map((genre) => {
+              {selectedGenres.length > 0 && (
+                <TouchableOpacity
+                  style={[
+                    styles.genrePill,
+                    { backgroundColor: 'rgba(239, 68, 68, 0.18)', borderColor: '#EF4444' },
+                  ]}
+                  onPress={() => setSelectedGenres([])}
+                >
+                  <Text style={{ color: '#F87171', fontSize: 12, fontWeight: '700' }}>
+                    Limpar ({selectedGenres.length}) ✕
+                  </Text>
+                </TouchableOpacity>
+              )}
+              {ALL_CATEGORIES_PT.map((genre) => {
                 const isSelected = selectedGenres.includes(genre);
                 return (
                   <TouchableOpacity
@@ -1212,7 +1237,7 @@ export default function BuscanimeApp() {
                 if (!loadingMore && catalogAnimes.length >= 12) {
                   const nextPage = page + 1;
                   setPage(nextPage);
-                  loadCatalog(nextPage, false);
+                  loadCatalog(nextPage, false, false);
                 }
               }}
               onEndReachedThreshold={0.5}
@@ -1285,9 +1310,12 @@ export default function BuscanimeApp() {
             </Text>
             <View style={styles.segmentedRow}>
               {[
-                { id: 'all', label: 'Todos' },
-                { id: 'watched', label: 'Visto' },
-                { id: 'unwatched', label: 'Não Visto' },
+                { id: 'all', label: `Todos (${favorites.length})` },
+                { id: 'watched', label: `Visto (${userWatchStats.totalWatchedAnimes})` },
+                {
+                  id: 'unwatched',
+                  label: `Não Visto (${favorites.length - userWatchStats.totalWatchedAnimes})`,
+                },
               ].map((st) => (
                 <TouchableOpacity
                   key={st.id}
@@ -1362,21 +1390,46 @@ export default function BuscanimeApp() {
         </Animated.View>
       )}
 
-      {/* ABA 3: MENU, ESTATÍSTICAS DE HORAS E CENTRAL DE BACKUP */}
+      {/* ABA 3: MENU, TOTAL DE ANIMES VISTOS, HORÔMETRO E CENTRAL DE BACKUP */}
       {activeTab === 'menu' && (
         <Animated.View entering={FadeIn.duration(220)} style={styles.flexOne}>
           <ScrollView contentContainerStyle={styles.menuScroll}>
-            {/* Card Principal do Horômetro / Tempo de Vida em Animes */}
+            {/* Card Principal: Total de Animes Vistos + Tempo Total */}
             <View
               style={[
                 styles.watchTimeCard,
                 { backgroundColor: theme.cardBg, borderColor: 'rgba(56, 189, 248, 0.35)' },
               ]}
             >
+              <View style={styles.totalWatchedHighlightRow}>
+                <View style={styles.totalWatchedBadgeIcon}>
+                  <Ionicons name="trophy" size={26} color="#FBBF24" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.totalWatchedTitle, { color: theme.subText }]}>
+                    TOTAL DE ANIMES VISTOS
+                  </Text>
+                  <Text style={[styles.totalWatchedNumber, { color: theme.text }]}>
+                    {userWatchStats.totalWatchedAnimes}{' '}
+                    <Text style={{ fontSize: 15, fontWeight: '600', color: '#10B981' }}>
+                      animes concluídos
+                    </Text>
+                  </Text>
+                </View>
+              </View>
+
+              <View
+                style={{
+                  height: 1,
+                  backgroundColor: 'rgba(255,255,255,0.08)',
+                  marginVertical: 12,
+                }}
+              />
+
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                <Ionicons name="time" size={22} color="#38BDF8" />
+                <Ionicons name="time" size={20} color="#38BDF8" />
                 <Text style={[styles.watchTimeHeader, { color: theme.text }]}>
-                  Seu Tempo Total em Animes
+                  Tempo Total Assistido
                 </Text>
               </View>
 
@@ -1384,7 +1437,7 @@ export default function BuscanimeApp() {
                 {userWatchStats.days}d {userWatchStats.hours}h {userWatchStats.minutes}min
               </Text>
               <Text style={[styles.watchTimeSub, { color: theme.subText }]}>
-                {userWatchStats.totalWatchedEpisodes} episódios assistidos ({userWatchStats.totalHours}{' '}
+                {userWatchStats.totalWatchedEpisodes} episódios vistos ({userWatchStats.totalHours}{' '}
                 horas acumuladas)
               </Text>
 
@@ -1406,6 +1459,7 @@ export default function BuscanimeApp() {
               )}
             </View>
 
+            {/* Grade de Resumo com Total Vistos, Em Progresso, Favoritos e Alertas */}
             <View style={styles.statsGrid}>
               <View
                 style={[
@@ -1413,32 +1467,81 @@ export default function BuscanimeApp() {
                   { backgroundColor: theme.cardBg, borderColor: theme.border },
                 ]}
               >
+                <Text style={[styles.statValue, { color: '#10B981' }]}>
+                  {userWatchStats.totalWatchedAnimes}
+                </Text>
+                <Text style={[styles.statLabel, { color: theme.subText }]}>
+                  Animes Vistos
+                </Text>
+              </View>
+
+              <View
+                style={[
+                  styles.statCard,
+                  { backgroundColor: theme.cardBg, borderColor: theme.border },
+                ]}
+              >
+                <Text style={styles.statValue}>{userWatchStats.totalWatchingAnimes}</Text>
+                <Text style={[styles.statLabel, { color: theme.subText }]}>
+                  Assistindo
+                </Text>
+              </View>
+
+              <View
+                style={[
+                  styles.statCard,
+                  { backgroundColor: theme.cardBg, borderColor: theme.border },
+                ]}
+              >
                 <Text style={styles.statValue}>{favorites.length}</Text>
-                <Text style={[styles.statLabel, { color: theme.subText }]}>Favoritos</Text>
+                <Text style={[styles.statLabel, { color: theme.subText }]}>
+                  Nos Favoritos
+                </Text>
               </View>
+
               <View
                 style={[
                   styles.statCard,
                   { backgroundColor: theme.cardBg, borderColor: theme.border },
                 ]}
               >
-                <Text style={styles.statValue}>{favorites.filter((f) => f.watched).length}</Text>
-                <Text style={[styles.statLabel, { color: theme.subText }]}>Animes Completos</Text>
-              </View>
-              <View
-                style={[
-                  styles.statCard,
-                  { backgroundColor: theme.cardBg, borderColor: theme.border },
-                ]}
-              >
-                <Text style={styles.statValue}>
+                <Text style={[styles.statValue, { color: '#FBBF24' }]}>
                   {favorites.filter((f) => f.notificationPref && f.notificationPref !== 'none').length}
                 </Text>
-                <Text style={[styles.statLabel, { color: theme.subText }]}>Alertas Ativos</Text>
+                <Text style={[styles.statLabel, { color: theme.subText }]}>
+                  Alertas Ativos
+                </Text>
               </View>
             </View>
 
-            <Text style={[styles.menuSectionTitle, { color: theme.subText }]}>
+            {/* Botão para Forçar Atualização Completa de Sinopses, Notas e Status */}
+            <TouchableOpacity
+              style={[
+                styles.menuActionCard,
+                { backgroundColor: theme.cardBg, borderColor: 'rgba(56, 189, 248, 0.35)' },
+              ]}
+              onPress={handleGlobalRefreshAll}
+              disabled={syncingFavorites}
+            >
+              <View style={[styles.menuIconBox, { backgroundColor: 'rgba(56, 189, 248, 0.15)' }]}>
+                {syncingFavorites ? (
+                  <ActivityIndicator size="small" color="#38BDF8" />
+                ) : (
+                  <Ionicons name="sync-circle-outline" size={24} color="#38BDF8" />
+                )}
+              </View>
+              <View style={styles.flexOne}>
+                <Text style={[styles.menuActionTitle, { color: theme.text }]}>
+                  Atualizar Tudo (Sinopses, Notas e Status)
+                </Text>
+                <Text style={[styles.menuActionDesc, { color: theme.subText }]}>
+                  Busca sinopses em português, notas atualizadas e episódios de toda sua lista
+                </Text>
+              </View>
+              <Ionicons name="chevron-forward" size={20} color={theme.subText} />
+            </TouchableOpacity>
+
+            <Text style={[styles.menuSectionTitle, { color: theme.subText, marginTop: 6 }]}>
               Backup Fácil (Compatível com Versão Antiga)
             </Text>
 
@@ -1605,9 +1708,7 @@ export default function BuscanimeApp() {
         </Animated.View>
       )}
 
-      {/* ========================================================================= */}
-      {/* MODAL DA ROLETA INTELIGENTE (SUGERIR ANIME ALEATÓRIO) */}
-      {/* ========================================================================= */}
+      {/* MODAL DA ROLETA INTELIGENTE */}
       <Modal
         visible={rouletteModalVisible}
         animationType="slide"
@@ -1686,14 +1787,14 @@ export default function BuscanimeApp() {
               </View>
 
               <Text style={[styles.filterGroupLabel, { color: theme.subText, marginTop: 10 }]}>
-                FILTRAR GÊNEROS PARA O SORTEIO (OPCIONAL)
+                FILTRAR GÊNEROS E CATEGORIAS (OPCIONAL)
               </Text>
               <ScrollView
                 horizontal
                 showsHorizontalScrollIndicator={false}
                 style={{ marginBottom: 14 }}
               >
-                {GENRES_LIST.map((g) => {
+                {ALL_CATEGORIES_PT.map((g) => {
                   const active = rouletteGenres.includes(g);
                   return (
                     <TouchableOpacity
@@ -1882,9 +1983,7 @@ export default function BuscanimeApp() {
         </View>
       </Modal>
 
-      {/* ========================================================================= */}
-      {/* MODAL DETALHES DO ANIME + CONFIGURAÇÃO DE NOTIFICAÇÕES DE LANÇAMENTO */}
-      {/* ========================================================================= */}
+      {/* MODAL DETALHES DO ANIME */}
       <Modal
         visible={!!selectedAnime}
         animationType="slide"
@@ -1947,6 +2046,14 @@ export default function BuscanimeApp() {
                       <Text style={[styles.modalMetaLine, { color: theme.subText }]}>
                         Status: {selectedAnime.status} ({selectedAnime.episodes || 12} eps)
                       </Text>
+                      {Array.isArray(selectedAnime.genres) && selectedAnime.genres.length > 0 && (
+                        <Text
+                          numberOfLines={2}
+                          style={[styles.modalMetaLine, { color: '#38BDF8', fontWeight: '600' }]}
+                        >
+                          {selectedAnime.genres.join(' • ')}
+                        </Text>
+                      )}
 
                       <View style={styles.modalActionButtons}>
                         <TouchableOpacity
@@ -1979,7 +2086,6 @@ export default function BuscanimeApp() {
                     </View>
                   </View>
 
-                  {/* SELETOR DE ALERTAS PARA ANIMES EM LANÇAMENTO */}
                   {selectedAnime.status === 'Em Andamento' && (
                     <View
                       style={[
@@ -1987,9 +2093,18 @@ export default function BuscanimeApp() {
                         { backgroundColor: theme.cardBg, borderColor: theme.border },
                       ]}
                     >
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8 }}>
+                      <View
+                        style={{
+                          flexDirection: 'row',
+                          alignItems: 'center',
+                          gap: 6,
+                          marginBottom: 8,
+                        }}
+                      >
                         <Ionicons name="notifications" size={16} color="#FBBF24" />
-                        <Text style={[styles.modalSectionTitle, { color: theme.text, fontSize: 13 }]}>
+                        <Text
+                          style={[styles.modalSectionTitle, { color: theme.text, fontSize: 13 }]}
+                        >
                           Notificações deste Lançamento
                         </Text>
                       </View>
@@ -2187,10 +2302,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#7C3AED',
-    paddingHorizontal: 12,
+    paddingHorizontal: 11,
     paddingVertical: 8,
     borderRadius: 10,
-    gap: 6,
+    gap: 5,
   },
   rouletteHeaderBtnText: {
     color: '#FFFFFF',
@@ -2206,7 +2321,9 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     borderWidth: 1,
     borderColor: 'rgba(56, 189, 248, 0.3)',
+    gap: 5,
   },
+  syncButtonText: { color: '#38BDF8', fontSize: 12, fontWeight: '700' },
   filtersContainer: { paddingHorizontal: 14, paddingTop: 10, paddingBottom: 4 },
   favFiltersWrapper: {
     paddingHorizontal: 14,
@@ -2378,15 +2495,43 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     marginBottom: 14,
   },
-  watchTimeHeader: { fontSize: 15, fontWeight: '800' },
-  watchTimeBig: {
-    color: '#38BDF8',
+  totalWatchedHighlightRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  totalWatchedBadgeIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 14,
+    backgroundColor: 'rgba(251, 191, 36, 0.15)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  totalWatchedTitle: {
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 0.6,
+  },
+  totalWatchedNumber: {
     fontSize: 26,
     fontWeight: '900',
-    marginTop: 8,
+    marginTop: 2,
+  },
+  watchTimeHeader: { fontSize: 14, fontWeight: '800' },
+  watchTimeBig: {
+    color: '#38BDF8',
+    fontSize: 22,
+    fontWeight: '900',
+    marginTop: 6,
   },
   watchTimeSub: { fontSize: 12, marginTop: 2 },
-  topGenresBox: { marginTop: 12, paddingTop: 10, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.08)' },
+  topGenresBox: {
+    marginTop: 12,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255,255,255,0.08)',
+  },
   topGenresLabel: { fontSize: 10, fontWeight: '800', marginBottom: 6 },
   topGenresRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
   topGenreBadge: {
@@ -2396,10 +2541,17 @@ const styles = StyleSheet.create({
     borderRadius: 12,
   },
   topGenreBadgeText: { color: '#38BDF8', fontSize: 11, fontWeight: '700' },
-  statsGrid: { flexDirection: 'row', gap: 10, marginBottom: 20 },
-  statCard: { flex: 1, padding: 12, borderRadius: 14, alignItems: 'center', borderWidth: 1 },
-  statValue: { color: '#38BDF8', fontSize: 19, fontWeight: '800' },
-  statLabel: { fontSize: 11, marginTop: 4, textAlign: 'center' },
+  statsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 16 },
+  statCard: {
+    flex: 1,
+    minWidth: '45%',
+    padding: 12,
+    borderRadius: 14,
+    alignItems: 'center',
+    borderWidth: 1,
+  },
+  statValue: { color: '#38BDF8', fontSize: 20, fontWeight: '800' },
+  statLabel: { fontSize: 11, marginTop: 4, textAlign: 'center', fontWeight: '600' },
   menuSectionTitle: {
     fontSize: 12,
     fontWeight: '800',
