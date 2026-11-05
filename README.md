@@ -1,71 +1,73 @@
 Buscanime
 
-O Buscanime é um aplicativo móvel completo e moderno desenvolvido em React Native para facilitar a busca, o acompanhamento e a organização da sua lista pessoal de animes. O projeto consome dados em tempo real da Jikan API (MyAnimeList).
+O Buscanime é um aplicativo móvel completo e moderno desenvolvido em React Native para facilitar a busca, o acompanhamento e a organização da sua biblioteca pessoal de animes. O projeto consome dados em tempo real da Jikan API (MyAnimeList) com fallback inteligente via AniList GraphQL.
 
 ✨ Funcionalidades Principais
 
-🔍 Busca Ilimitada: Pesquise qualquer anime na base de dados mundial com rolagem infinita e busca dinâmica por título e ano.
+🔍 Busca Ilimitada: Pesquise animes no catálogo global com paginação infinita e busca combinada por nome e ano.
 
 📂 Minha Lista (Biblioteca Pessoal):
 
-Marque títulos como Favoritos ❤️ e Vistos ✅ de forma independente.
+Salve animes como Favoritos ❤️ e Vistos ✅ de maneira independente.
 
-Acompanhe o progresso episódio por episódio.
+Controle de episódios assistidos um a um com barra de progresso.
 
-Sincronização automática do status de animes em lançamento.
+Sincronização inteligente de episódios e status de animes em lançamento (Airing).
 
 ⚡ Filtros e Ordenação Avançada:
 
-Filtragem por status de exibição (Em Lançamento, Concluído).
+Filtre por status de lançamento (Em Lançamento, Finalizado) e status pessoal (Vistos, Não Vistos, Todos).
 
-Filtragem por status de progresso (Vistos, Não Vistos, Todos).
+Ordenação instantânea por ordem alfabética (A-Z), nota e data de estreia (novos/antigos).
 
-Ordenação por ordem alfabética (A-Z), melhor avaliados ou data de lançamento (mais novos/antigos).
+Filtros por múltiplos gêneros com opção de controle de conteúdo (+18 / NSFW).
 
-Filtro por múltiplos gêneros e controle de conteúdo (+18 / NSFW).
-
-📅 Temporada Atual: Acompanhe em tempo real os animes lançados na temporada atual.
+📊 Estatísticas Detalhadas: Acompanhe métricas de progresso e a distribuição de animes assistidos por gênero através de um menu horizontal deslizante.
 
 💾 Backup & Restauração Inteligente:
 
-Cross-Platform: Exporte ou importe sua biblioteca em .json no Mobile e na Web.
+Exporte e importe seus dados em .json em plataformas móveis e web.
 
-Resolução de Conflitos: Ao restaurar, defina o status em lote (Todos Vistos, Não Vistos) ou escolha manualmente item por item.
+Resolução de conflitos em lote ou manual para manter a integridade do seu progresso.
 
-🌗 Interface Adaptável: Modo escuro nativo com acabamento visual moderno em tons azul e branco.
+🌗 Interface Moderna: Suporte completo a Modo Escuro com paleta customizada em tons azul marinho profundo e texto de alto contraste.
 
-🚀 Novidades da Versão (v2.4.5)
+🚀 Novidades da Versão (v2.4.6)
 
-✨ Catálogo de Gêneros Expandido: Adição de gêneros que estavam ausentes, permitindo filtros de busca mais precisos e completos.
+🔄 Sincronização Contextual Inteligente:
 
-🐛 Correção de Sinopse nos Favoritos: Corrigido o problema que impedia o carregamento correto da sinopse e detalhes em itens da biblioteca.
+Refresh Individual: Ao abrir a página de detalhes de um anime específico, o botão atualiza exclusivamente os dados e a sinopse daquele título instantaneamente, sem sobrecarregar a API.
 
-🔄 Botão de Atualização Manual (Refresh): Adicionado botão de atualização rápida para sincronizar dados, episódios e notas diretamente pela tela de favoritos.
+Refresh Global: Na tela de favoritos ou menu, a sincronização roda para a biblioteca completa em fila ordenada.
 
-⚡ Otimização de Desempenho: Ajustes em rotas, carregamento de serviços e estabilidade geral na renderização das listas.
+📊 Barra de Progresso com Cancelamento: Adicionado modal/indicador de progresso em tempo real durante a sincronização em lote, exibindo a contagem de itens atualizados, anime atual e botão para Interromper/Parar o processo a qualquer momento.
+
+🎭 Estatísticas por Gênero no Menu: Substituição da listagem estática por um carrossel deslizante interativo mostrando exatamente quantos animes assistidos você tem em cada gênero (Ação, Romance, Isekai, etc.) sem poluir o visual.
+
+⚡ Correções de Sinopse e Desempenho: Carregamento aprimorado de sinopses e eliminação de gargalos com limites de taxa (rate-limit / HTTP 429).
 
 📲 Como Baixar e Instalar (Android)
 
-Para instalar a versão mais recente (v2.4.5) no seu dispositivo Android:
+Para instalar a versão mais recente (v2.4.6) no seu smartphone Android:
 
 Acesse a aba Releases no repositório.
 
 Baixe o arquivo binário Buscanime.apk.
 
-Abra o arquivo no seu smartphone e confirme a instalação.
+Abra o arquivo no dispositivo e confirme a instalação.
 
-Nota: Caso o sistema solicite, habilite a permissão de instalação de "Fontes Desconhecidas" nas configurações do Android.
+Nota: Caso solicitado, permita a instalação a partir de "Fontes Desconhecidas" nas configurações do Android.
 
 🛠️ Tecnologias Utilizadas
 
 React Native com Expo (SDK 54)
 
-Expo Router (Navegação baseada em arquivos)
+Expo Router (Navegação estruturada por rotas)
 
-AsyncStorage (Persistência de dados locais)
+AsyncStorage (Armazenamento offline do usuário)
 
-Jikan API (Consumo da API pública do MyAnimeList)
+Jikan API & AniList API
 
-EAS Build (Compilação e geração de binários em nuvem)
+EAS Build (Geração remota de binários APK)
 
-Desenvolvido com dedicação por Gabriel de Sassarrão Moraes Ramos.
+Desenvolvido por Gabriel de Sassarrão Moraes Ramos.

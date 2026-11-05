@@ -24,11 +24,63 @@ export interface AnimeItem {
   notificationPref?: NotificationPreference;
 }
 
-const CACHE_PREFIX = '@buscanime_api_cache_v7_';
+export const APP_VERSION = '2.4.6';
+const CACHE_PREFIX = '@buscanime_api_cache_v246_';
 const CACHE_TTL = 1000 * 60 * 45;
 const memoryCache = new Map<string, { timestamp: number; data: any }>();
 
-// Gêneros Oficiais da API AniList (genre_in)
+// Garante que NUNCA exista um anime marcado como "Visto" sem todos os episódios marcados
+export function syncWatchedAndEpisodes(
+  watchedInput?: boolean,
+  totalEpisodesInput?: number,
+  watchedEpisodesInput?: number[]
+): { watched: boolean; episodes: number; watchedEpisodes: number[] } {
+  const rawList = Array.isArray(watchedEpisodesInput)
+    ? Array.from(
+        new Set(
+          watchedEpisodesInput
+            .map((n) => Number(n))
+            .filter((n) => !isNaN(n) && n > 0)
+        )
+      ).sort((a, b) => a - b)
+    : [];
+
+  const maxEpInList = rawList.length > 0 ? rawList[rawList.length - 1] : 0;
+  const totalEpisodes = Math.max(Number(totalEpisodesInput) || 12, maxEpInList, 1);
+
+  const isWatched = Boolean(watchedInput) || rawList.length >= totalEpisodes;
+
+  if (isWatched) {
+    const fullEpisodes = Array.from({ length: totalEpisodes }, (_, i) => i + 1);
+    return {
+      watched: true,
+      episodes: totalEpisodes,
+      watchedEpisodes: fullEpisodes,
+    };
+  }
+
+  return {
+    watched: false,
+    episodes: totalEpisodes,
+    watchedEpisodes: rawList,
+  };
+}
+
+async function fetchWithTimeout(
+  url: string,
+  options: RequestInit = {},
+  timeoutMs: number = 6500
+): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch(url, { ...options, signal: controller.signal });
+    return res;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 export const OFFICIAL_GENRES_MAP: Record<string, string> = {
   Action: 'Ação',
   Adventure: 'Aventura',
@@ -51,7 +103,6 @@ export const OFFICIAL_GENRES_MAP: Record<string, string> = {
   Hentai: 'Hentai',
 };
 
-// Temas, Subgêneros e Demografias da API AniList (tag_in)
 export const OFFICIAL_TAGS_MAP: Record<string, string> = {
   Isekai: 'Isekai',
   Shounen: 'Shounen',
@@ -140,7 +191,6 @@ export function translateGenres(genres: string[], tags?: { name: string }[]): st
   return Array.from(result);
 }
 
-// Separa as categorias escolhidas pelo usuário entre Gêneros e Tags da API
 function splitCategoriesForApi(selectedPtCategories?: string[]): {
   apiGenres?: string[];
   apiTags?: string[];
@@ -189,8 +239,9 @@ export function cleanSynopsis(text?: string | null): string {
   if (!text || text.trim().length === 0) {
     return 'Sinopse indisponível no momento.';
   }
+  const stripHtmlRegex = new RegExp('<[^>]*>?', 'gm');
   const cleaned = text
-    .replace(/<[^>]*>?/gm, '')
+    .replace(stripHtmlRegex, '')
     .replace(/\[Written by MAL Rewrite\]/gi, '')
     .replace(/\(Source:.*?\)/gi, '')
     .trim();
@@ -216,7 +267,7 @@ export async function translateSynopsisToPt(text?: string | null): Promise<strin
     const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=pt&dt=t&q=${encodeURIComponent(
       cleaned
     )}`;
-    const response = await fetch(url);
+    const response = await fetchWithTimeout(url, {}, 4500);
     const json = await response.json();
 
     if (Array.isArray(json?.[0])) {
@@ -253,7 +304,7 @@ function getCurrentAnimeSeason(): {
   year: number;
 } {
   const now = new Date();
-  const month = now.getMonth() + 1; // 1 a 12
+  const month = now.getMonth() + 1;
   const year = now.getFullYear();
 
   if (month >= 1 && month <= 3) return { season: 'WINTER', year };
@@ -286,6 +337,8 @@ function mapAniListToAnimeItem(media: any): AnimeItem {
     genres: translateGenres(media.genres || [], media.tags || []),
     trailerUrl,
     isAdult: media.isAdult || false,
+    watched: false,
+    watchedEpisodes: [],
     nextAiringEpisode: media.nextAiringEpisode
       ? {
           episode: media.nextAiringEpisode.episode,
@@ -389,7 +442,6 @@ export async function fetchAnimesCatalog(params: {
 
   if (params.search && params.search.trim().length > 0) {
     variables.search = params.search.trim();
-    // Quando há busca por texto, libera restrição de estação para achar qualquer obra
     seasonFilter = undefined;
   }
   if (apiGenres) variables.genres = apiGenres;
@@ -399,11 +451,15 @@ export async function fetchAnimesCatalog(params: {
   if (seasonYearFilter) variables.seasonYear = seasonYearFilter;
 
   try {
-    const response = await fetch('https://graphql.anilist.co', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-      body: JSON.stringify({ query, variables }),
-    });
+    const response = await fetchWithTimeout(
+      'https://graphql.anilist.co',
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify({ query, variables }),
+      },
+      7500
+    );
 
     if (response.ok) {
       const json = await response.json();
@@ -418,7 +474,6 @@ export async function fetchAnimesCatalog(params: {
     console.warn('Erro ao carregar catálogo AniList:', err);
   }
 
-  // Fallback Jikan API para garantir que "Da Temporada" ou buscas nunca fiquem vazias
   try {
     let jikanUrl = `https://api.jikan.moe/v4/top/anime?page=${page}&limit=24`;
     if (params.category === 'season') {
@@ -431,7 +486,7 @@ export async function fetchAnimesCatalog(params: {
       )}&page=${page}&limit=24`;
     }
 
-    const res = await fetch(jikanUrl);
+    const res = await fetchWithTimeout(jikanUrl, {}, 7500);
     if (res.ok) {
       const json = await res.json();
       if (Array.isArray(json?.data) && json.data.length > 0) {
@@ -448,6 +503,8 @@ export async function fetchAnimesCatalog(params: {
           genres: translateGenres((d.genres || []).map((g: any) => g.name)),
           trailerUrl: d.trailer?.url || null,
           isAdult: d.rating?.includes('Rx') || false,
+          watched: false,
+          watchedEpisodes: [],
         }));
         memoryCache.set(cacheKey, { timestamp: Date.now(), data: mapped });
         return mapped;
@@ -491,11 +548,15 @@ export async function fetchWeeklyScheduleAnimes(includeAdult: boolean = false): 
   `;
 
   try {
-    const res = await fetch('https://graphql.anilist.co', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-      body: JSON.stringify({ query, variables: { isAdult: includeAdult } }),
-    });
+    const res = await fetchWithTimeout(
+      'https://graphql.anilist.co',
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify({ query, variables: { isAdult: includeAdult } }),
+      },
+      7000
+    );
     if (res.ok) {
       const json = await res.json();
       const list = (json?.data?.Page?.media || [])
@@ -550,19 +611,23 @@ export async function fetchRandomRecommendation(params: {
   `;
 
   try {
-    const res = await fetch('https://graphql.anilist.co', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-      body: JSON.stringify({
-        query,
-        variables: {
-          page: randomPage,
-          genres: apiGenres,
-          tags: apiTags,
-          isAdult: params.includeAdult,
-        },
-      }),
-    });
+    const res = await fetchWithTimeout(
+      'https://graphql.anilist.co',
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify({
+          query,
+          variables: {
+            page: randomPage,
+            genres: apiGenres,
+            tags: apiTags,
+            isAdult: params.includeAdult,
+          },
+        }),
+      },
+      7000
+    );
 
     if (res.ok) {
       const json = await res.json();
@@ -582,7 +647,6 @@ export async function fetchRandomRecommendation(params: {
   return null;
 }
 
-// Busca e atualiza TODOS os dados (Sinopse em PT-BR, Nota, Status, Episódios, Ano, Gêneros e Capa)
 export async function fetchCompleteAnimeDetails(
   anime: AnimeItem,
   forceRefresh: boolean = false
@@ -595,12 +659,20 @@ export async function fetchCompleteAnimeDetails(
     cached &&
     Date.now() - cached.timestamp < CACHE_TTL &&
     isValidSynopsis(cached.data?.synopsis) &&
-    cached.data?.score !== null
+    cached.data?.score !== null &&
+    Array.isArray(cached.data?.genres) &&
+    cached.data.genres.length > 0
   ) {
+    const syncedCached = syncWatchedAndEpisodes(
+      anime.watched,
+      cached.data.episodes,
+      anime.watchedEpisodes
+    );
     return {
       ...cached.data,
-      watched: anime.watched,
-      watchedEpisodes: anime.watchedEpisodes,
+      episodes: syncedCached.episodes,
+      watched: syncedCached.watched,
+      watchedEpisodes: syncedCached.watchedEpisodes,
       notificationPref: anime.notificationPref || 'none',
     };
   }
@@ -670,32 +742,38 @@ export async function fetchCompleteAnimeDetails(
   };
 
   try {
-    // 1. Tenta buscar pelo ID no AniList
     if (anime.mal_id) {
-      const resById = await fetch('https://graphql.anilist.co', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-        body: JSON.stringify({
-          query: anilistQuery,
-          variables: { idMal: Number(anime.mal_id) },
-        }),
-      });
+      const resById = await fetchWithTimeout(
+        'https://graphql.anilist.co',
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+          body: JSON.stringify({
+            query: anilistQuery,
+            variables: { idMal: Number(anime.mal_id) },
+          }),
+        },
+        5000
+      );
       if (resById.ok) {
         const json = await resById.json();
         applyAniListMedia(json?.data?.Media);
       }
     }
 
-    // 2. Se ainda não achou sinopse ou nota, busca pelo Título no AniList
-    if ((!isValidSynopsis(rawSynopsis) || score === null) && anime.title) {
-      const resByTitle = await fetch('https://graphql.anilist.co', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-        body: JSON.stringify({
-          query: anilistQuery,
-          variables: { search: anime.title },
-        }),
-      });
+    if ((!isValidSynopsis(rawSynopsis) || score === null || genres.length === 0) && anime.title) {
+      const resByTitle = await fetchWithTimeout(
+        'https://graphql.anilist.co',
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+          body: JSON.stringify({
+            query: anilistQuery,
+            variables: { search: anime.title },
+          }),
+        },
+        5000
+      );
       if (resByTitle.ok) {
         const json = await resByTitle.json();
         applyAniListMedia(json?.data?.Media);
@@ -703,13 +781,12 @@ export async function fetchCompleteAnimeDetails(
     }
   } catch {}
 
-  // 3. Fallback Jikan v4 (MyAnimeList) se ainda faltar sinopse, nota ou episódios
   if (!isValidSynopsis(rawSynopsis) || score === null || episodes <= 0) {
     try {
       const jikanUrl = anime.mal_id
         ? `https://api.jikan.moe/v4/anime/${anime.mal_id}`
         : `https://api.jikan.moe/v4/anime?q=${encodeURIComponent(anime.title)}&limit=1`;
-      const jikanRes = await fetch(jikanUrl);
+      const jikanRes = await fetchWithTimeout(jikanUrl, {}, 5000);
       if (jikanRes.ok) {
         const jikanJson = await jikanRes.json();
         const d = Array.isArray(jikanJson?.data) ? jikanJson.data[0] : jikanJson?.data;
@@ -740,36 +817,15 @@ export async function fetchCompleteAnimeDetails(
     } catch {}
   }
 
-  // 4. Fallback Kitsu API caso a sinopse ainda esteja vazia
-  if (!isValidSynopsis(rawSynopsis) && anime.title) {
-    try {
-      const kitsuRes = await fetch(
-        `https://kitsu.io/api/edge/anime?filter[text]=${encodeURIComponent(anime.title)}&page[limit]=1`
-      );
-      if (kitsuRes.ok) {
-        const kitsuJson = await kitsuRes.json();
-        const attr = kitsuJson?.data?.[0]?.attributes;
-        if (attr) {
-          if (isValidSynopsis(attr.synopsis || attr.description)) {
-            rawSynopsis = cleanSynopsis(attr.synopsis || attr.description);
-          }
-          if (attr.episodeCount && (!episodes || episodes <= 0)) {
-            episodes = attr.episodeCount;
-          }
-          if (attr.averageRating && score === null) {
-            score = Number((Number(attr.averageRating) / 10).toFixed(1));
-          }
-        }
-      }
-    } catch {}
-  }
-
   const translatedSynopsis = await translateSynopsisToPt(rawSynopsis);
+  const synced = syncWatchedAndEpisodes(anime.watched, episodes, anime.watchedEpisodes);
 
   const enriched: AnimeItem = {
     ...anime,
     image: image || anime.image,
-    episodes: episodes > 0 ? episodes : 12,
+    episodes: synced.episodes,
+    watched: synced.watched,
+    watchedEpisodes: synced.watchedEpisodes,
     synopsis: translatedSynopsis,
     status,
     year,
@@ -784,65 +840,200 @@ export async function fetchCompleteAnimeDetails(
   return enriched;
 }
 
-// Atualiza TODOS os campos dos favoritos em lotes (evita bloqueio de limite de requisições da API)
-export async function syncFavoritesOnlineWithAlerts(
+async function fetchBatchFromAniListByMalIds(malIds: number[]) {
+  const resultMap = new Map<number, any>();
+  if (malIds.length === 0) return resultMap;
+
+  const query = `
+    query ($ids: [Int]) {
+      Page(page: 1, perPage: 50) {
+        media(idMal_in: $ids, type: ANIME) {
+          id
+          idMal
+          title { romaji english native }
+          coverImage { extraLarge large }
+          description(asHtml: false)
+          episodes
+          nextAiringEpisode { episode airingAt }
+          status
+          seasonYear
+          startDate { year }
+          averageScore
+          genres
+          tags { name }
+          trailer { id site }
+        }
+      }
+    }
+  `;
+
+  try {
+    const res = await fetchWithTimeout(
+      'https://graphql.anilist.co',
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify({ query, variables: { ids: malIds } }),
+      },
+      8000
+    );
+    if (res.ok) {
+      const json = await res.json();
+      const mediaList = json?.data?.Page?.media || [];
+      mediaList.forEach((m: any) => {
+        if (m?.idMal) {
+          resultMap.set(Number(m.idMal), m);
+        }
+      });
+    }
+  } catch {}
+
+  return resultMap;
+}
+
+export async function syncFavoritesOnlineWithProgress(
   favorites: AnimeItem[],
-  forceRefresh: boolean = true
+  options: {
+    forceRefresh?: boolean;
+    shouldCancel: () => boolean;
+    onProgress: (current: number, total: number, currentTitle: string) => void;
+    onPartialSave: (partialUpdatedList: AnimeItem[]) => Promise<void>;
+  }
 ): Promise<{
   updatedList: AnimeItem[];
   newlyFinishedTitles: string[];
+  wasCancelled: boolean;
 }> {
-  if (!Array.isArray(favorites) || favorites.length === 0) {
-    return { updatedList: [], newlyFinishedTitles: [] };
+  const total = favorites.length;
+  if (!Array.isArray(favorites) || total === 0) {
+    return { updatedList: [], newlyFinishedTitles: [], wasCancelled: false };
   }
 
   const newlyFinishedTitles: string[] = [];
-  const updatedList: AnimeItem[] = [];
-  const BATCH_SIZE = 4;
+  const workingList: AnimeItem[] = [...favorites];
 
-  for (let i = 0; i < favorites.length; i += BATCH_SIZE) {
-    const batch = favorites.slice(i, i + BATCH_SIZE);
-    const batchResults = await Promise.all(
-      batch.map(async (fav) => {
-        try {
-          const wasAiring = fav.status === 'Em Andamento';
-          const details = await fetchCompleteAnimeDetails(fav, forceRefresh);
-          const watchedEps = Array.isArray(fav.watchedEpisodes) ? fav.watchedEpisodes : [];
-          const isAllWatched =
-            fav.watched === true ||
-            (details.episodes > 0 && watchedEps.length >= details.episodes);
+  const CHUNK_SIZE = 45;
+  const batchMediaMap = new Map<number, any>();
 
-          if (
-            wasAiring &&
-            details.status === 'Finalizado' &&
-            fav.notificationPref === 'finished'
-          ) {
-            newlyFinishedTitles.push(fav.title);
-          }
+  for (let i = 0; i < total; i += CHUNK_SIZE) {
+    if (options.shouldCancel()) {
+      return { updatedList: workingList, newlyFinishedTitles, wasCancelled: true };
+    }
+    const chunkIds = workingList
+      .slice(i, i + CHUNK_SIZE)
+      .map((item) => Number(item.mal_id))
+      .filter((id) => id > 0);
 
-          return {
-            ...fav,
-            image: details.image || fav.image,
-            episodes: details.episodes || fav.episodes || 12,
-            synopsis: isValidSynopsis(details.synopsis) ? details.synopsis : fav.synopsis,
-            status: details.status || fav.status,
-            year: details.year || fav.year,
-            score: details.score ?? fav.score,
-            genres: details.genres?.length ? details.genres : fav.genres,
-            nextAiringEpisode: details.nextAiringEpisode ?? fav.nextAiringEpisode ?? null,
-            watched: isAllWatched,
-            watchedEpisodes: watchedEps,
-            notificationPref: fav.notificationPref || 'none',
-          };
-        } catch {
-          return fav;
-        }
-      })
-    );
-    updatedList.push(...batchResults);
+    const chunkMap = await fetchBatchFromAniListByMalIds(chunkIds);
+    chunkMap.forEach((val, key) => batchMediaMap.set(key, val));
   }
 
-  return { updatedList, newlyFinishedTitles };
+  for (let idx = 0; idx < total; idx++) {
+    if (options.shouldCancel()) {
+      await options.onPartialSave(workingList);
+      return { updatedList: workingList, newlyFinishedTitles, wasCancelled: true };
+    }
+
+    const fav = workingList[idx];
+    options.onProgress(idx + 1, total, fav.title);
+
+    const wasAiring = fav.status === 'Em Andamento';
+    const preloaded = batchMediaMap.get(Number(fav.mal_id));
+
+    try {
+      let updatedItem: AnimeItem = { ...fav };
+
+      if (preloaded) {
+        const airedCount = preloaded.nextAiringEpisode?.episode
+          ? Math.max(preloaded.nextAiringEpisode.episode - 1, 1)
+          : 0;
+        const rawEpisodes = preloaded.episodes || airedCount || fav.episodes || 12;
+        const status = normalizeStatus(preloaded.status);
+        const year = preloaded.seasonYear || preloaded.startDate?.year || fav.year;
+        const score = preloaded.averageScore
+          ? Number((preloaded.averageScore / 10).toFixed(1))
+          : fav.score;
+        const genres =
+          Array.isArray(preloaded.genres) && preloaded.genres.length > 0
+            ? translateGenres(preloaded.genres, preloaded.tags || [])
+            : fav.genres || [];
+        const image =
+          fav.image || preloaded.coverImage?.extraLarge || preloaded.coverImage?.large || '';
+
+        let synopsis = fav.synopsis;
+        if (!isValidSynopsis(synopsis) || options.forceRefresh) {
+          const rawDesc = cleanSynopsis(preloaded.description);
+          if (isValidSynopsis(rawDesc)) {
+            synopsis = await translateSynopsisToPt(rawDesc);
+          }
+        }
+
+        // Sincroniza o estado "Visto" com todos os episódios 1..N
+        const synced = syncWatchedAndEpisodes(fav.watched, rawEpisodes, fav.watchedEpisodes);
+
+        if (wasAiring && status === 'Finalizado' && fav.notificationPref === 'finished') {
+          newlyFinishedTitles.push(fav.title);
+        }
+
+        updatedItem = {
+          ...fav,
+          image,
+          episodes: synced.episodes,
+          watched: synced.watched,
+          watchedEpisodes: synced.watchedEpisodes,
+          synopsis: isValidSynopsis(synopsis) ? synopsis : fav.synopsis,
+          status,
+          year,
+          score,
+          genres,
+          nextAiringEpisode: preloaded.nextAiringEpisode
+            ? {
+                episode: preloaded.nextAiringEpisode.episode,
+                airingAt: preloaded.nextAiringEpisode.airingAt,
+              }
+            : null,
+          notificationPref: fav.notificationPref || 'none',
+        };
+      } else if (!isValidSynopsis(fav.synopsis) || !fav.genres || fav.genres.length === 0) {
+        const details = await fetchCompleteAnimeDetails(fav, true);
+        const synced = syncWatchedAndEpisodes(
+          fav.watched,
+          details.episodes,
+          fav.watchedEpisodes
+        );
+
+        if (wasAiring && details.status === 'Finalizado' && fav.notificationPref === 'finished') {
+          newlyFinishedTitles.push(fav.title);
+        }
+
+        updatedItem = {
+          ...fav,
+          ...details,
+          episodes: synced.episodes,
+          watched: synced.watched,
+          watchedEpisodes: synced.watchedEpisodes,
+          notificationPref: fav.notificationPref || 'none',
+        };
+      } else {
+        // Mesmo que não precise buscar na rede, garante que se estiver Visto todos os episódios estão marcados
+        const synced = syncWatchedAndEpisodes(fav.watched, fav.episodes, fav.watchedEpisodes);
+        updatedItem = {
+          ...fav,
+          episodes: synced.episodes,
+          watched: synced.watched,
+          watchedEpisodes: synced.watchedEpisodes,
+        };
+      }
+
+      workingList[idx] = updatedItem;
+    } catch {}
+
+    if ((idx + 1) % 8 === 0 || idx === total - 1) {
+      await options.onPartialSave([...workingList]);
+    }
+  }
+
+  return { updatedList: workingList, newlyFinishedTitles, wasCancelled: false };
 }
 
 export function normalizeLegacyBackupList(rawParsed: any): AnimeItem[] {
@@ -868,17 +1059,21 @@ export function normalizeLegacyBackupList(rawParsed: any): AnimeItem[] {
         item.images?.jpg?.large_image_url ||
         item.images?.jpg?.image_url ||
         '';
-      const watchedEpisodes = Array.isArray(item.watchedEpisodes)
+      const rawWatchedEpisodes = Array.isArray(item.watchedEpisodes)
         ? item.watchedEpisodes.map(Number)
         : Array.isArray(item.episodesWatched)
         ? item.episodesWatched.map(Number)
         : [];
-      const episodes = Number(item.episodes || item.totalEpisodes || watchedEpisodes.length || 12);
-      const watched =
+      const rawEpisodes = Number(
+        item.episodes || item.totalEpisodes || rawWatchedEpisodes.length || 12
+      );
+      const rawWatchedFlag =
         Boolean(item.watched) ||
         Boolean(item.completed) ||
-        item.statusUser === 'watched' ||
-        (episodes > 0 && watchedEpisodes.length >= episodes);
+        item.statusUser === 'watched';
+
+      // Preenche automaticamente 1..N episódios se o anime estiver marcado como visto
+      const synced = syncWatchedAndEpisodes(rawWatchedFlag, rawEpisodes, rawWatchedEpisodes);
 
       return {
         mal_id: id,
@@ -886,17 +1081,19 @@ export function normalizeLegacyBackupList(rawParsed: any): AnimeItem[] {
         image,
         bannerImage: item.bannerImage || null,
         synopsis: cleanSynopsis(item.synopsis || item.description || ''),
-        episodes,
+        episodes: synced.episodes,
         score: item.score ? Number(item.score) : null,
         year: Number(item.year || item.seasonYear || item.aired?.prop?.from?.year || 0) || null,
         status: normalizeStatus(item.status),
         genres: Array.isArray(item.genres)
-          ? item.genres.map((g: any) => (typeof g === 'string' ? g : g?.name || '')).filter(Boolean)
+          ? translateGenres(
+              item.genres.map((g: any) => (typeof g === 'string' ? g : g?.name || '')).filter(Boolean)
+            )
           : [],
         trailerUrl: item.trailerUrl || item.trailer?.url || null,
         isAdult: Boolean(item.isAdult),
-        watched,
-        watchedEpisodes,
+        watched: synced.watched,
+        watchedEpisodes: synced.watchedEpisodes,
         nextAiringEpisode: item.nextAiringEpisode || null,
         notificationPref: item.notificationPref || 'none',
       };

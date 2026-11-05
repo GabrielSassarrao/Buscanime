@@ -2,7 +2,7 @@
   "expo": {
     "name": "Buscanime",
     "slug": "buscanime",
-    "version": "2.4.5",
+    "version": "2.4.6",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "userInterfaceStyle": "automatic",
@@ -34,7 +34,6 @@
       "eas": {
         "projectId": "5bb312b7-1429-4ecb-9e8b-2aff59fdcd70"
       }
-    },
-    "owner": "gabrielsmr14"
+    }
   }
 }
