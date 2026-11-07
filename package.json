@@ -1,7 +1,7 @@
 {
   "name": "buscanime",
   "main": "expo-router/entry",
-  "version": "2.4.6",
+  "version": "2.4.7",
   "scripts": {
     "start": "expo start",
     "android": "expo start --android",
@@ -17,6 +17,7 @@
     "@react-navigation/native": "^7.1.25",
     "@react-navigation/stack": "^7.6.12",
     "expo": "~54.0.28",
+    "expo-clipboard": "~8.0.8",
     "expo-constants": "~18.0.11",
     "expo-document-picker": "~14.0.8",
     "expo-file-system": "~19.0.21",

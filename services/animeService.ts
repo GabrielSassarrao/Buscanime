@@ -24,9 +24,10 @@ export interface AnimeItem {
   notificationPref?: NotificationPreference;
 }
 
-export const APP_VERSION = '2.4.6';
-const CACHE_PREFIX = '@buscanime_api_cache_v246_';
+export const APP_VERSION = '2.4.7';
+const CACHE_PREFIX = '@buscanime_api_cache_v247_';
 const CACHE_TTL = 1000 * 60 * 45;
+
 const memoryCache = new Map<string, { timestamp: number; data: any }>();
 
 // Garante que NUNCA exista um anime marcado como "Visto" sem todos os episódios marcados
@@ -47,7 +48,6 @@ export function syncWatchedAndEpisodes(
 
   const maxEpInList = rawList.length > 0 ? rawList[rawList.length - 1] : 0;
   const totalEpisodes = Math.max(Number(totalEpisodesInput) || 12, maxEpInList, 1);
-
   const isWatched = Boolean(watchedInput) || rawList.length >= totalEpisodes;
 
   if (isWatched) {
@@ -198,12 +198,10 @@ function splitCategoriesForApi(selectedPtCategories?: string[]): {
   if (!Array.isArray(selectedPtCategories) || selectedPtCategories.length === 0) {
     return {};
   }
-
   const reverseGenre: Record<string, string> = {};
   Object.entries(OFFICIAL_GENRES_MAP).forEach(([en, pt]) => {
     reverseGenre[pt] = en;
   });
-
   const reverseTag: Record<string, string> = {};
   Object.entries(OFFICIAL_TAGS_MAP).forEach(([en, pt]) => {
     reverseTag[pt] = en;
@@ -231,6 +229,7 @@ export function isValidSynopsis(text?: string | null): boolean {
   const trimmed = text.trim();
   if (trimmed.length < 12) return false;
   if (trimmed.includes('Sinopse indisponível')) return false;
+  if (trimmed.includes('Sinopse indispon')) return false;
   if (trimmed.includes('Carregando sinopse')) return false;
   return true;
 }
@@ -245,7 +244,6 @@ export function cleanSynopsis(text?: string | null): string {
     .replace(/\[Written by MAL Rewrite\]/gi, '')
     .replace(/\(Source:.*?\)/gi, '')
     .trim();
-
   return cleaned.length > 0 ? cleaned : 'Sinopse indisponível no momento.';
 }
 
@@ -269,7 +267,6 @@ export async function translateSynopsisToPt(text?: string | null): Promise<strin
     )}`;
     const response = await fetchWithTimeout(url, {}, 4500);
     const json = await response.json();
-
     if (Array.isArray(json?.[0])) {
       const translated = json[0].map((part: any) => part[0]).join('');
       if (isValidSynopsis(translated)) {
@@ -286,7 +283,19 @@ export async function translateSynopsisToPt(text?: string | null): Promise<strin
 
 export function normalizeStatus(rawStatus?: string | null): 'Finalizado' | 'Em Andamento' {
   if (!rawStatus) return 'Em Andamento';
-  const s = String(rawStatus).toUpperCase();
+  const s = String(rawStatus).toUpperCase().trim();
+  if (
+    s.includes('NOT_YET_AIRED') ||
+    s.includes('NOT YET AIRED') ||
+    s.includes('RELEASING') ||
+    s.includes('CURRENTLY AIRING') ||
+    s.includes('EM ANDAMENTO') ||
+    s.includes('LANCANDO') ||
+    s.includes('LANÇANDO') ||
+    s.includes('HIATUS')
+  ) {
+    return 'Em Andamento';
+  }
   if (
     s.includes('FINISHED') ||
     s.includes('COMPLETE') ||
@@ -306,7 +315,6 @@ function getCurrentAnimeSeason(): {
   const now = new Date();
   const month = now.getMonth() + 1;
   const year = now.getFullYear();
-
   if (month >= 1 && month <= 3) return { season: 'WINTER', year };
   if (month >= 4 && month <= 6) return { season: 'SPRING', year };
   if (month >= 7 && month <= 9) return { season: 'SUMMER', year };
@@ -318,7 +326,6 @@ function mapAniListToAnimeItem(media: any): AnimeItem {
     ? Math.max(media.nextAiringEpisode.episode - 1, 1)
     : 0;
   const totalEpisodes = media.episodes || airedEpisodes || 12;
-
   const trailerUrl =
     media.trailer?.site === 'youtube' && media.trailer?.id
       ? `https://www.youtube.com/watch?v=${media.trailer.id}`
@@ -360,7 +367,6 @@ export async function fetchAnimesCatalog(params: {
   const page = params.page || 1;
   const cacheKey = `${CACHE_PREFIX}catalog_${JSON.stringify({ ...params, forceRefresh: false })}`;
   const cached = memoryCache.get(cacheKey);
-
   if (!params.forceRefresh && cached && Date.now() - cached.timestamp < CACHE_TTL) {
     return cached.data;
   }
@@ -628,12 +634,10 @@ export async function fetchRandomRecommendation(params: {
       },
       7000
     );
-
     if (res.ok) {
       const json = await res.json();
       const mediaList: AnimeItem[] = (json?.data?.Page?.media || []).map(mapAniListToAnimeItem);
       const unseenCandidates = mediaList.filter((a) => !params.excludedIds.has(a.mal_id));
-
       if (unseenCandidates.length > 0) {
         const picked =
           unseenCandidates[Math.floor(Math.random() * unseenCandidates.length)];
@@ -643,7 +647,6 @@ export async function fetchRandomRecommendation(params: {
   } catch (e) {
     console.warn('Erro ao sortear recomendação:', e);
   }
-
   return null;
 }
 
@@ -653,13 +656,11 @@ export async function fetchCompleteAnimeDetails(
 ): Promise<AnimeItem> {
   const cacheKey = `${CACHE_PREFIX}full_${anime.mal_id}_${anime.title}`;
   const cached = memoryCache.get(cacheKey);
-
   if (
     !forceRefresh &&
     cached &&
     Date.now() - cached.timestamp < CACHE_TTL &&
     isValidSynopsis(cached.data?.synopsis) &&
-    cached.data?.score !== null &&
     Array.isArray(cached.data?.genres) &&
     cached.data.genres.length > 0
   ) {
@@ -686,10 +687,11 @@ export async function fetchCompleteAnimeDetails(
   let image = anime.image || '';
   let trailerUrl = anime.trailerUrl || null;
   let nextAiringEpisode = anime.nextAiringEpisode || null;
+  let matchedOnAniList = false;
 
   const anilistQuery = `
-    query ($idMal: Int, $search: String) {
-      Media(idMal: $idMal, search: $search, type: ANIME) {
+    query ($idMal: Int, $id: Int, $search: String) {
+      Media(idMal: $idMal, id: $id, search: $search, type: ANIME) {
         id
         idMal
         title { romaji english native }
@@ -710,6 +712,7 @@ export async function fetchCompleteAnimeDetails(
 
   const applyAniListMedia = (m: any) => {
     if (!m) return;
+    matchedOnAniList = true;
     const airedCount = m.nextAiringEpisode?.episode
       ? Math.max(m.nextAiringEpisode.episode - 1, 1)
       : 0;
@@ -738,12 +741,14 @@ export async function fetchCompleteAnimeDetails(
         episode: m.nextAiringEpisode.episode,
         airingAt: m.nextAiringEpisode.airingAt,
       };
+    } else if (status === 'Finalizado') {
+      nextAiringEpisode = null;
     }
   };
 
   try {
     if (anime.mal_id) {
-      const resById = await fetchWithTimeout(
+      const resByIdMal = await fetchWithTimeout(
         'https://graphql.anilist.co',
         {
           method: 'POST',
@@ -755,13 +760,33 @@ export async function fetchCompleteAnimeDetails(
         },
         5000
       );
-      if (resById.ok) {
-        const json = await resById.json();
+      if (resByIdMal.ok) {
+        const json = await resByIdMal.json();
         applyAniListMedia(json?.data?.Media);
+      }
+
+      // Caso o anime tenha sido salvo com o ID do próprio AniList (ex: lançamentos futuros de 2027)
+      if (!matchedOnAniList) {
+        const resByAniId = await fetchWithTimeout(
+          'https://graphql.anilist.co',
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+            body: JSON.stringify({
+              query: anilistQuery,
+              variables: { id: Number(anime.mal_id) },
+            }),
+          },
+          5000
+        );
+        if (resByAniId.ok) {
+          const json = await resByAniId.json();
+          applyAniListMedia(json?.data?.Media);
+        }
       }
     }
 
-    if ((!isValidSynopsis(rawSynopsis) || score === null || genres.length === 0) && anime.title) {
+    if ((!matchedOnAniList || !isValidSynopsis(rawSynopsis) || genres.length === 0) && anime.title) {
       const resByTitle = await fetchWithTimeout(
         'https://graphql.anilist.co',
         {
@@ -781,11 +806,12 @@ export async function fetchCompleteAnimeDetails(
     }
   } catch {}
 
-  if (!isValidSynopsis(rawSynopsis) || score === null || episodes <= 0) {
+  if (!isValidSynopsis(rawSynopsis) || !matchedOnAniList || episodes <= 0) {
     try {
-      const jikanUrl = anime.mal_id
-        ? `https://api.jikan.moe/v4/anime/${anime.mal_id}`
-        : `https://api.jikan.moe/v4/anime?q=${encodeURIComponent(anime.title)}&limit=1`;
+      const jikanUrl =
+        anime.mal_id && !matchedOnAniList
+          ? `https://api.jikan.moe/v4/anime/${anime.mal_id}`
+          : `https://api.jikan.moe/v4/anime?q=${encodeURIComponent(anime.title)}&limit=1`;
       const jikanRes = await fetchWithTimeout(jikanUrl, {}, 5000);
       if (jikanRes.ok) {
         const jikanJson = await jikanRes.json();
@@ -797,10 +823,10 @@ export async function fetchCompleteAnimeDetails(
           if (d.score && score === null) {
             score = Number(Number(d.score).toFixed(1));
           }
-          if (d.episodes && (!episodes || episodes === 12)) {
+          if (d.episodes && (!episodes || (!matchedOnAniList && episodes === 12))) {
             episodes = d.episodes;
           }
-          if (d.status) {
+          if (d.status && !matchedOnAniList) {
             status = normalizeStatus(d.status);
           }
           if (!year && (d.year || d.aired?.prop?.from?.year)) {
@@ -844,7 +870,7 @@ async function fetchBatchFromAniListByMalIds(malIds: number[]) {
   const resultMap = new Map<number, any>();
   if (malIds.length === 0) return resultMap;
 
-  const query = `
+  const queryByMal = `
     query ($ids: [Int]) {
       Page(page: 1, perPage: 50) {
         media(idMal_in: $ids, type: ANIME) {
@@ -873,7 +899,7 @@ async function fetchBatchFromAniListByMalIds(malIds: number[]) {
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-        body: JSON.stringify({ query, variables: { ids: malIds } }),
+        body: JSON.stringify({ query: queryByMal, variables: { ids: malIds } }),
       },
       8000
     );
@@ -887,6 +913,53 @@ async function fetchBatchFromAniListByMalIds(malIds: number[]) {
       });
     }
   } catch {}
+
+  // Busca complementar por ID direto do AniList para animes futuros (ex: 2027) sem idMal vinculado
+  const missingIds = malIds.filter((id) => !resultMap.has(Number(id)));
+  if (missingIds.length > 0) {
+    const queryByAniId = `
+      query ($ids: [Int]) {
+        Page(page: 1, perPage: 50) {
+          media(id_in: $ids, type: ANIME) {
+            id
+            idMal
+            title { romaji english native }
+            coverImage { extraLarge large }
+            description(asHtml: false)
+            episodes
+            nextAiringEpisode { episode airingAt }
+            status
+            seasonYear
+            startDate { year }
+            averageScore
+            genres
+            tags { name }
+            trailer { id site }
+          }
+        }
+      }
+    `;
+    try {
+      const resAni = await fetchWithTimeout(
+        'https://graphql.anilist.co',
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+          body: JSON.stringify({ query: queryByAniId, variables: { ids: missingIds } }),
+        },
+        8000
+      );
+      if (resAni.ok) {
+        const jsonAni = await resAni.json();
+        const mediaListAni = jsonAni?.data?.Page?.media || [];
+        mediaListAni.forEach((m: any) => {
+          if (m?.id && !resultMap.has(Number(m.id))) {
+            resultMap.set(Number(m.id), m);
+          }
+        });
+      }
+    } catch {}
+  }
 
   return resultMap;
 }
@@ -911,7 +984,6 @@ export async function syncFavoritesOnlineWithProgress(
 
   const newlyFinishedTitles: string[] = [];
   const workingList: AnimeItem[] = [...favorites];
-
   const CHUNK_SIZE = 45;
   const batchMediaMap = new Map<number, any>();
 
@@ -923,7 +995,6 @@ export async function syncFavoritesOnlineWithProgress(
       .slice(i, i + CHUNK_SIZE)
       .map((item) => Number(item.mal_id))
       .filter((id) => id > 0);
-
     const chunkMap = await fetchBatchFromAniListByMalIds(chunkIds);
     chunkMap.forEach((val, key) => batchMediaMap.set(key, val));
   }
@@ -959,6 +1030,10 @@ export async function syncFavoritesOnlineWithProgress(
             : fav.genres || [];
         const image =
           fav.image || preloaded.coverImage?.extraLarge || preloaded.coverImage?.large || '';
+        const trailerUrl =
+          preloaded.trailer?.site === 'youtube' && preloaded.trailer?.id
+            ? `https://www.youtube.com/watch?v=${preloaded.trailer.id}`
+            : fav.trailerUrl || null;
 
         let synopsis = fav.synopsis;
         if (!isValidSynopsis(synopsis) || options.forceRefresh) {
@@ -986,6 +1061,7 @@ export async function syncFavoritesOnlineWithProgress(
           year,
           score,
           genres,
+          trailerUrl,
           nextAiringEpisode: preloaded.nextAiringEpisode
             ? {
                 episode: preloaded.nextAiringEpisode.episode,
@@ -994,7 +1070,13 @@ export async function syncFavoritesOnlineWithProgress(
             : null,
           notificationPref: fav.notificationPref || 'none',
         };
-      } else if (!isValidSynopsis(fav.synopsis) || !fav.genres || fav.genres.length === 0) {
+      } else if (
+        !isValidSynopsis(fav.synopsis) ||
+        !fav.genres ||
+        fav.genres.length === 0 ||
+        !fav.year ||
+        fav.status === 'Em Andamento'
+      ) {
         const details = await fetchCompleteAnimeDetails(fav, true);
         const synced = syncWatchedAndEpisodes(
           fav.watched,
@@ -1038,7 +1120,6 @@ export async function syncFavoritesOnlineWithProgress(
 
 export function normalizeLegacyBackupList(rawParsed: any): AnimeItem[] {
   let rawArray: any[] = [];
-
   if (Array.isArray(rawParsed)) {
     rawArray = rawParsed;
   } else if (rawParsed && Array.isArray(rawParsed.favorites)) {
@@ -1059,13 +1140,15 @@ export function normalizeLegacyBackupList(rawParsed: any): AnimeItem[] {
         item.images?.jpg?.large_image_url ||
         item.images?.jpg?.image_url ||
         '';
+
       const rawWatchedEpisodes = Array.isArray(item.watchedEpisodes)
         ? item.watchedEpisodes.map(Number)
         : Array.isArray(item.episodesWatched)
         ? item.episodesWatched.map(Number)
         : [];
+
       const rawEpisodes = Number(
-        item.episodes || item.totalEpisodes || rawWatchedEpisodes.length || 12
+        item.episodes || item.totalEpisodes || item.total_episodes || rawWatchedEpisodes.length || 12
       );
       const rawWatchedFlag =
         Boolean(item.watched) ||
@@ -1082,7 +1165,7 @@ export function normalizeLegacyBackupList(rawParsed: any): AnimeItem[] {
         bannerImage: item.bannerImage || null,
         synopsis: cleanSynopsis(item.synopsis || item.description || ''),
         episodes: synced.episodes,
-        score: item.score ? Number(item.score) : null,
+        score: item.score !== undefined && item.score !== null ? Number(item.score) : null,
         year: Number(item.year || item.seasonYear || item.aired?.prop?.from?.year || 0) || null,
         status: normalizeStatus(item.status),
         genres: Array.isArray(item.genres)
